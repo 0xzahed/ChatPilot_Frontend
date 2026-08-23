@@ -3,16 +3,17 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { authApi } from "@/lib/api";
 import { useAuth } from "@/providers/app-providers";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Spinner } from "@/components/ui/spinner";
+import { useRegisterMutation } from "@/redux/api/authApi";
 
 export default function RegisterPage() {
   const router = useRouter();
   const { login } = useAuth();
+  const [register, { isLoading: isSubmitting }] = useRegisterMutation();
   const [form, setForm] = useState({
     email: "",
     username: "",
@@ -37,15 +38,15 @@ export default function RegisterPage() {
     }
     setIsLoading(true);
     try {
-      await authApi.register(form);
+      await register(form).unwrap();
       await login(form.email, form.password);
       router.push("/dashboard");
     } catch (err: any) {
-      const errors = err.response?.data?.error?.details;
+      const errors = err.data?.error?.details;
       if (errors) {
         setError(Object.values(errors).flat().join(", "));
       } else {
-        setError(err.response?.data?.error?.message || "Registration failed");
+        setError(err.data?.error?.message || "Registration failed");
       }
     } finally {
       setIsLoading(false);

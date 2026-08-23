@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/providers/app-providers";
 import { useWorkspace } from "@/providers/workspace-context";
@@ -13,6 +13,40 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const { user, isLoading: authLoading } = useAuth();
   const { workspace, isLoading: wsLoading } = useWorkspace();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarVisible, setSidebarVisible] = useState(false);
+
+  // Open: mount + animate in
+  const openSidebar = useCallback(() => {
+    setSidebarOpen(true);
+    // next tick so the slide-in animation runs
+    requestAnimationFrame(() => setSidebarVisible(true));
+  }, []);
+
+  // Close: animate out, then unmount
+  const closeSidebar = useCallback(() => {
+    setSidebarVisible(false);
+    window.setTimeout(() => setSidebarOpen(false), 250);
+  }, []);
+
+  // Lock body scroll while sidebar open
+  useEffect(() => {
+    if (sidebarOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => { document.body.style.overflow = ""; };
+  }, [sidebarOpen]);
+
+  // Close on Escape
+  useEffect(() => {
+    if (!sidebarOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") closeSidebar();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [sidebarOpen, closeSidebar]);
 
   if (authLoading || wsLoading) {
     return (
@@ -52,16 +86,29 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       {/* Mobile sidebar */}
       {sidebarOpen && (
         <div className="fixed inset-0 z-50 lg:hidden">
-          <div className="absolute inset-0 bg-black/50" onClick={() => setSidebarOpen(false)} />
-          <aside className="absolute left-0 top-0 h-full w-64 animate-slide-in-right">
-            <Sidebar onNavigate={() => setSidebarOpen(false)} />
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0 bg-black/50 transition-opacity ease-out"
+            style={{ opacity: sidebarVisible ? 1 : 0, transitionDuration: "250ms" }}
+            onClick={closeSidebar}
+          />
+          {/* Panel — slides from left */}
+          <aside
+            className="absolute left-0 top-0 h-full w-72 max-w-[85vw] bg-sidebar shadow-2xl transition-transform ease-out"
+            style={{
+              transform: sidebarVisible ? "translateX(0)" : "translateX(-100%)",
+              transitionDuration: "250ms",
+              transitionTimingFunction: "cubic-bezier(0.32, 0.72, 0, 1)",
+            }}
+          >
+            <Sidebar onNavigate={closeSidebar} />
           </aside>
         </div>
       )}
 
       {/* Main content */}
       <div className="flex flex-1 flex-col overflow-hidden">
-        <Topbar onMenuClick={() => setSidebarOpen(true)} />
+        <Topbar onMenuClick={openSidebar} />
         <main className="flex-1 overflow-y-auto bg-background">{children}</main>
       </div>
     </div>

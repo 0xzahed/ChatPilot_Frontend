@@ -1,9 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
 import { useWorkspace } from "@/providers/workspace-context";
-import { analyticsApi } from "@/lib/api";
+import { useGetDashboardQuery, useGetChartsQuery } from "@/redux/api/analyticsApi";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
@@ -36,17 +35,15 @@ export default function DashboardPage() {
   const { workspace } = useWorkspace();
   const [days, setDays] = useState(30);
 
-  const { data: stats, isLoading } = useQuery({
-    queryKey: ["dashboard", workspace?.id, days],
-    queryFn: () => analyticsApi.dashboard(workspace!.id, days).then((r) => r.data),
-    enabled: !!workspace,
-  });
+  const { data: stats, isLoading } = useGetDashboardQuery(
+    { workspaceId: workspace!.id, days },
+    { skip: !workspace }
+  );
 
-  const { data: charts } = useQuery({
-    queryKey: ["charts", workspace?.id, days],
-    queryFn: () => analyticsApi.charts(workspace!.id, days).then((r) => r.data),
-    enabled: !!workspace,
-  });
+  const { data: charts } = useGetChartsQuery(
+    { workspaceId: workspace!.id, days },
+    { skip: !workspace }
+  );
 
   const statCards = [
     { label: "Total Conversations", value: stats?.total_conversations, icon: MessageSquare, color: "text-blue-500" },
@@ -86,7 +83,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Usage banner */}
-      {stats && (
+      {stats && stats.message_limit != null && (
         <Card className="bg-primary/5 border-primary/20">
           <CardContent className="flex items-center justify-between py-4">
             <div className="flex items-center gap-3">
@@ -94,7 +91,7 @@ export default function DashboardPage() {
               <div>
                 <p className="text-sm font-medium">Message Usage</p>
                 <p className="text-xs text-muted-foreground">
-                  {stats.messages_used.toLocaleString()} / {stats.message_limit.toLocaleString()} messages used this month
+                  {(stats.messages_used ?? 0).toLocaleString()} / {stats.message_limit.toLocaleString()} messages used this month
                 </p>
               </div>
             </div>
@@ -102,11 +99,11 @@ export default function DashboardPage() {
               <div className="h-2 w-32 overflow-hidden rounded-full bg-muted">
                 <div
                   className="h-full bg-primary"
-                  style={{ width: `${Math.min((stats.messages_used / stats.message_limit) * 100, 100)}%` }}
+                  style={{ width: `${Math.min(((stats.messages_used ?? 0) / stats.message_limit) * 100, 100)}%` }}
                 />
               </div>
-              <Badge variant={stats.messages_remaining < stats.message_limit * 0.1 ? "warning" : "secondary"}>
-                {stats.messages_remaining.toLocaleString()} remaining
+              <Badge variant={(stats.messages_remaining ?? 0) < stats.message_limit * 0.1 ? "warning" : "secondary"}>
+                {(stats.messages_remaining ?? 0).toLocaleString()} remaining
               </Badge>
             </div>
           </CardContent>

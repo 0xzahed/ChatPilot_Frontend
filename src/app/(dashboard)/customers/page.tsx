@@ -1,11 +1,13 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useState, useEffect, useMemo, Suspense } from "react";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { useWorkspace } from "@/providers/workspace-context";
 import { useToast } from "@/components/ui/toast";
-import { customerApi, labelApi } from "@/lib/api";
+import {
+  useGetCustomersQuery, useCreateCustomerMutation, useUpdateCustomerMutation,
+} from "@/redux/api/customerApi";
+import { useGetLabelsQuery } from "@/redux/api/conversationApi";
 import {
   Card,
   CardContent,
@@ -81,10 +83,9 @@ interface CustomerListResponse {
   previous: string | null;
 }
 
-export default function CustomersPage() {
+function CustomersContent() {
   const { workspace } = useWorkspace();
   const { toast } = useToast();
-  const queryClient = useQueryClient();
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -127,54 +128,63 @@ export default function CustomersPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [debouncedSearch]);
 
-  const { data, isLoading, isError } = useQuery<CustomerListResponse>({
-    queryKey: ["customers", workspace?.id, debouncedSearch, page],
-    queryFn: () =>
-      customerApi
-        .list({
-          workspace_id: workspace?.id,
-          search: debouncedSearch || undefined,
-          page,
-          limit: PAGE_SIZE,
+  const { data: rawData, isLoading, isError } = useGetCustomersQuery(
+    { workspace_id: workspace?.id, search: debouncedSearch || undefined, page, limit: PAGE_SIZE } as any,
+    { skip: !workspace }
+  );
+  const data = rawData as any;
+
+  const { data: labelsData } = useGetLabelsQuery(undefined as any, { skip: !workspace });
+  const labels: any[] = (labelsData as any)?.results || (labelsData as any) || [];
+
+  const [updateCustomer, { isLoading: isUpdating }] = useUpdateCustomerMutation();
+  const [createCustomer, { isLoading: isCreating }] = useCreateCustomerMutation();
+
+  const updateMutation = {
+    isPending: isUpdating,
+    mutate: ({ id, data }: { id: string; data: any }) => {
+      updateCustomer({ id, data })
+        .unwrap()
+        .then(() => {
+          toast({ type: "success", title: "Customer updated successfully" });
+          setSelectedCustomer(null);
         })
-        .then((r) => r.data),
-    enabled: !!workspace,
-  });
+        .catch(() => toast({ type: "error", title: "Failed to update customer" }));
+    },
+    mutateAsync: async ({ id, data }: { id: string; data: any }) => {
+      try {
+        await updateCustomer({ id, data }).unwrap();
+        toast({ type: "success", title: "Customer updated successfully" });
+        setSelectedCustomer(null);
+      } catch {
+        toast({ type: "error", title: "Failed to update customer" });
+      }
+    },
+  };
 
-  const { data: labels } = useQuery({
-    queryKey: ["labels", workspace?.id],
-    queryFn: () =>
-      labelApi
-        .list()
-        .then((r) => r.data?.results || r.data || []),
-    enabled: !!workspace,
-  });
-
-  const updateMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: any }) =>
-      customerApi.update(id, data),
-    onSuccess: () => {
-      toast({ type: "success", title: "Customer updated successfully" });
-      queryClient.invalidateQueries({ queryKey: ["customers"] });
-      setSelectedCustomer(null);
+  const createMutation = {
+    isPending: isCreating,
+    mutate: (data: any) => {
+      createCustomer(data)
+        .unwrap()
+        .then(() => {
+          toast({ type: "success", title: "Customer created successfully" });
+          setShowAddDialog(false);
+          setAddForm({ name: "", phone: "", email: "", language: "en" });
+        })
+        .catch(() => toast({ type: "error", title: "Failed to create customer" }));
     },
-    onError: () => {
-      toast({ type: "error", title: "Failed to update customer" });
+    mutateAsync: async (data: any) => {
+      try {
+        await createCustomer(data).unwrap();
+        toast({ type: "success", title: "Customer created successfully" });
+        setShowAddDialog(false);
+        setAddForm({ name: "", phone: "", email: "", language: "en" });
+      } catch {
+        toast({ type: "error", title: "Failed to create customer" });
+      }
     },
-  });
-
-  const createMutation = useMutation({
-    mutationFn: (data: any) => customerApi.create(data),
-    onSuccess: () => {
-      toast({ type: "success", title: "Customer created successfully" });
-      queryClient.invalidateQueries({ queryKey: ["customers"] });
-      setShowAddDialog(false);
-      setAddForm({ name: "", phone: "", email: "", language: "en" });
-    },
-    onError: () => {
-      toast({ type: "error", title: "Failed to create customer" });
-    },
-  });
+  };
 
   const customers = data?.results || [];
   const hasMore = !!data?.next;
@@ -313,7 +323,7 @@ export default function CustomersPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {customers.map((customer) => (
+                  {customers.map((customer: any) => (
                     <TableRow
                       key={customer.id}
                       className="cursor-pointer"
@@ -345,7 +355,7 @@ export default function CustomersPage() {
                       <TableCell>
                         <div className="flex flex-wrap gap-1">
                           {(customer.channels || []).length > 0 ? (
-                            customer.channels!.map((ch) => (
+                            customer.channels!.map((ch: any) => (
                               <span
                                 key={ch}
                                 className={cn(
@@ -370,7 +380,7 @@ export default function CustomersPage() {
                       </TableCell>
                       <TableCell>
                         <div className="flex flex-wrap gap-1">
-                          {(customer.labels || []).slice(0, 2).map((label) => (
+                          {(customer.labels || []).slice(0, 2).map((label: any) => (
                             <span
                               key={label.id}
                               className={cn(
@@ -643,5 +653,19 @@ export default function CustomersPage() {
         </div>
       </Dialog>
     </div>
+  );
+}
+
+export default function CustomersPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex h-full items-center justify-center p-6">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+        </div>
+      }
+    >
+      <CustomersContent />
+    </Suspense>
   );
 }

@@ -1,10 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useWorkspace } from "@/providers/workspace-context";
 import { useToast } from "@/components/ui/toast";
-import { teamApi } from "@/lib/api";
+import { useGetTeamQuery, useInviteMemberMutation, useUpdateMemberMutation } from "@/redux/api/teamApi";
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -35,39 +34,37 @@ const roleVariant = (role: string) =>
 export default function TeamPage() {
   const { workspace } = useWorkspace();
   const { toast } = useToast();
-  const queryClient = useQueryClient();
 
   const [inviteOpen, setInviteOpen] = useState(false);
   const [email, setEmail] = useState("");
   const [role, setRole] = useState("agent");
 
-  const { data, isLoading } = useQuery({
-    queryKey: ["team"],
-    queryFn: () => teamApi.list().then((r) => r.data),
-  });
+  const { data: rawData, isLoading } = useGetTeamQuery(undefined, { skip: !workspace });
+  const data = rawData as any;
+  const members: any[] = data?.results || data || [];
 
-  const members: any[] = data?.results || [];
-
-  const inviteMutation = useMutation({
-    mutationFn: () => teamApi.invite(email, role, workspace!.id),
-    onSuccess: () => {
-      toast({ type: "success", title: "Invitation sent", description: `An invite has been sent to ${email}.` });
-      queryClient.invalidateQueries({ queryKey: ["team"] });
-      setInviteOpen(false);
-      setEmail("");
-      setRole("agent");
+  const [inviteMember, { isLoading: isInviting }] = useInviteMemberMutation();
+  const inviteMutation = {
+    isPending: isInviting,
+    mutate: () => {
+      inviteMember({ email, role, workspaceId: workspace!.id }).unwrap().then(() => {
+        toast({ type: "success", title: "Invitation sent", description: `An invite has been sent to ${email}.` });
+        setInviteOpen(false);
+        setEmail("");
+        setRole("agent");
+      }).catch(() => toast({ type: "error", title: "Invitation failed", description: "Could not send the invite." }));
     },
-    onError: () => toast({ type: "error", title: "Invitation failed", description: "Could not send the invite." }),
-  });
+  };
 
-  const updateMutation = useMutation({
-    mutationFn: ({ id, role }: { id: string; role: string }) => teamApi.update(id, role),
-    onSuccess: () => {
-      toast({ type: "success", title: "Role updated" });
-      queryClient.invalidateQueries({ queryKey: ["team"] });
+  const [updateMember, { isLoading: isUpdating }] = useUpdateMemberMutation();
+  const updateMutation = {
+    isPending: isUpdating,
+    mutate: ({ id, role }: { id: string; role: string }) => {
+      updateMember({ id, role }).unwrap().then(() => {
+        toast({ type: "success", title: "Role updated" });
+      }).catch(() => toast({ type: "error", title: "Failed to update role" }));
     },
-    onError: () => toast({ type: "error", title: "Failed to update role" }),
-  });
+  };
 
   const handleInvite = (e: React.FormEvent) => {
     e.preventDefault();

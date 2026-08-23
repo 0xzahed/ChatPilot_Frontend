@@ -38,7 +38,8 @@ export function timeAgo(date: string | Date) {
   return formatDate(d);
 }
 
-export function getInitials(name: string) {
+export function getInitials(name: string | undefined | null) {
+  if (!name) return "?";
   return name
     .split(" ")
     .map((n) => n[0])

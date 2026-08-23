@@ -1,10 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
 import { useWorkspace } from "@/providers/workspace-context";
-import { useToast } from "@/components/ui/toast";
-import { orderApi } from "@/lib/api";
+import { useGetOrdersQuery } from "@/redux/api/orderApi";
 import {
   Card,
   CardContent,
@@ -97,7 +95,6 @@ interface OrderListResponse {
 
 export default function OrdersPage() {
   const { workspace } = useWorkspace();
-  const { toast } = useToast();
 
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -115,22 +112,19 @@ export default function OrdersPage() {
     setPage(1);
   }, [debouncedSearch, status]);
 
-  const { data, isLoading, isError } = useQuery<OrderListResponse>({
-    queryKey: ["orders", workspace?.id, debouncedSearch, status, page],
-    queryFn: () =>
-      orderApi
-        .list({
-          workspace_id: workspace?.id,
-          search: debouncedSearch || undefined,
-          status: status !== "all" ? status : undefined,
-          page,
-          limit: PAGE_SIZE,
-        })
-        .then((r) => r.data),
-    enabled: !!workspace,
-  });
+  const { data: rawData, isLoading, isError } = useGetOrdersQuery(
+    {
+      workspace_id: workspace?.id,
+      search: debouncedSearch || undefined,
+      status: status !== "all" ? status : undefined,
+      page,
+      limit: PAGE_SIZE,
+    },
+    { skip: !workspace }
+  );
+  const data = rawData as any;
 
-  const orders = data?.results || [];
+  const orders: Order[] = data?.results || [];
   const totalPages = data?.count
     ? Math.ceil(data.count / PAGE_SIZE)
     : 1;

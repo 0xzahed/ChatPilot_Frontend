@@ -1,12 +1,13 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useWorkspace } from "@/providers/workspace-context";
 import { useToast } from "@/components/ui/toast";
-import {
-  workspaceApi, aiApi, billingApi, webchatApi, notificationApi,
-} from "@/lib/api";
+import { useGetWorkspaceSettingsQuery, useUpdateWorkspaceSettingsMutation } from "@/redux/api/workspaceApi";
+import { useGetAISettingsQuery, useUpdateAISettingsMutation, useGetAIInstructionsQuery, useUpdateAIInstructionsMutation } from "@/redux/api/aiApi";
+import { useGetPlansQuery, useGetSubscriptionQuery, useSubscribeMutation, useGetUsageQuery } from "@/redux/api/billingApi";
+import { useGetWebchatConfigQuery, useUpdateWebchatConfigMutation } from "@/redux/api/webchatApi";
+import { useGetNotificationsQuery, useMarkReadMutation, useMarkAllReadMutation } from "@/redux/api/notificationApi";
 import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -35,7 +36,6 @@ const TABS = [
 export default function SettingsPage() {
   const { workspace } = useWorkspace();
   const { toast } = useToast();
-  const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState("general");
 
   return (
@@ -61,11 +61,8 @@ export default function SettingsPage() {
     const [name, setName] = useState("");
     const [slug, setSlug] = useState("");
 
-    const { data, isLoading } = useQuery({
-      queryKey: ["workspace-settings", workspace?.id],
-      queryFn: () => workspaceApi.settings(workspace!.id).then((r) => r.data),
-      enabled: !!workspace,
-    });
+    const { data: rawData, isLoading } = useGetWorkspaceSettingsQuery(workspace?.id as string, { skip: !workspace });
+    const data = rawData as any;
 
     useEffect(() => {
       if (data) {
@@ -78,14 +75,15 @@ export default function SettingsPage() {
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [data]);
 
-    const saveMutation = useMutation({
-      mutationFn: () => workspaceApi.updateSettings(workspace!.id, { name, slug }),
-      onSuccess: () => {
-        toast({ type: "success", title: "Settings saved", description: "Workspace settings updated." });
-        queryClient.invalidateQueries({ queryKey: ["workspace-settings", workspace?.id] });
+    const [updateWorkspaceSettings, { isLoading: isSaving }] = useUpdateWorkspaceSettingsMutation();
+    const saveMutation = {
+      isPending: isSaving,
+      mutate: () => {
+        updateWorkspaceSettings({ id: workspace!.id, data: { name, slug } }).unwrap().then(() => {
+          toast({ type: "success", title: "Settings saved", description: "Workspace settings updated." });
+        }).catch(() => toast({ type: "error", title: "Failed to save", description: "Could not update settings." }));
       },
-      onError: () => toast({ type: "error", title: "Failed to save", description: "Could not update settings." }),
-    });
+    };
 
     return (
       <Card className="max-w-2xl">
@@ -146,17 +144,11 @@ export default function SettingsPage() {
       faqs: "",
     });
 
-    const { data: settingsData, isLoading: settingsLoading } = useQuery({
-      queryKey: ["ai-settings", workspace?.id],
-      queryFn: () => aiApi.settings(workspace!.id).then((r) => r.data),
-      enabled: !!workspace,
-    });
+    const { data: rawSettingsData, isLoading: settingsLoading } = useGetAISettingsQuery(workspace?.id as string, { skip: !workspace });
+    const settingsData = rawSettingsData as any;
 
-    const { data: instructionsData, isLoading: instrLoading } = useQuery({
-      queryKey: ["ai-instructions", workspace?.id],
-      queryFn: () => aiApi.instructions(workspace!.id).then((r) => r.data),
-      enabled: !!workspace,
-    });
+    const { data: rawInstructionsData, isLoading: instrLoading } = useGetAIInstructionsQuery(workspace?.id as string, { skip: !workspace });
+    const instructionsData = rawInstructionsData as any;
 
     useEffect(() => {
       if (settingsData) setSettings((prev: any) => ({ ...prev, ...settingsData }));
@@ -166,23 +158,25 @@ export default function SettingsPage() {
       if (instructionsData) setInstructions((prev: any) => ({ ...prev, ...instructionsData }));
     }, [instructionsData]);
 
-    const saveSettingsMutation = useMutation({
-      mutationFn: () => aiApi.updateSettings(workspace!.id, settings),
-      onSuccess: () => {
-        toast({ type: "success", title: "AI settings saved" });
-        queryClient.invalidateQueries({ queryKey: ["ai-settings", workspace?.id] });
+    const [updateAISettings, { isLoading: isSavingSettings }] = useUpdateAISettingsMutation();
+    const saveSettingsMutation = {
+      isPending: isSavingSettings,
+      mutate: () => {
+        updateAISettings({ workspaceId: workspace!.id, data: settings }).unwrap().then(() => {
+          toast({ type: "success", title: "AI settings saved" });
+        }).catch(() => toast({ type: "error", title: "Failed to save AI settings" }));
       },
-      onError: () => toast({ type: "error", title: "Failed to save AI settings" }),
-    });
+    };
 
-    const saveInstructionsMutation = useMutation({
-      mutationFn: () => aiApi.updateInstructions(workspace!.id, instructions),
-      onSuccess: () => {
-        toast({ type: "success", title: "AI instructions saved" });
-        queryClient.invalidateQueries({ queryKey: ["ai-instructions", workspace?.id] });
+    const [updateAIInstructions, { isLoading: isSavingInstructions }] = useUpdateAIInstructionsMutation();
+    const saveInstructionsMutation = {
+      isPending: isSavingInstructions,
+      mutate: () => {
+        updateAIInstructions({ workspaceId: workspace!.id, data: instructions }).unwrap().then(() => {
+          toast({ type: "success", title: "AI instructions saved" });
+        }).catch(() => toast({ type: "error", title: "Failed to save instructions" }));
       },
-      onError: () => toast({ type: "error", title: "Failed to save instructions" }),
-    });
+    };
 
     const loading = settingsLoading || instrLoading;
 
@@ -331,31 +325,24 @@ export default function SettingsPage() {
 
   // ─── Billing Tab ───────────────────────────────────────────
   function BillingTab() {
-    const { data: plansData, isLoading: plansLoading } = useQuery({
-      queryKey: ["billing-plans"],
-      queryFn: () => billingApi.plans().then((r) => r.data),
-    });
+    const { data: rawPlansData, isLoading: plansLoading } = useGetPlansQuery();
+    const plansData = rawPlansData as any;
 
-    const { data: subData, isLoading: subLoading } = useQuery({
-      queryKey: ["billing-subscription", workspace?.id],
-      queryFn: () => billingApi.subscription(workspace!.id).then((r) => r.data),
-      enabled: !!workspace,
-    });
+    const { data: rawSubData, isLoading: subLoading } = useGetSubscriptionQuery(workspace?.id as string, { skip: !workspace });
+    const subData = rawSubData as any;
 
-    const { data: usageData, isLoading: usageLoading } = useQuery({
-      queryKey: ["billing-usage", workspace?.id],
-      queryFn: () => billingApi.usage(workspace!.id).then((r) => r.data),
-      enabled: !!workspace,
-    });
+    const { data: rawUsageData, isLoading: usageLoading } = useGetUsageQuery(workspace?.id as string, { skip: !workspace });
+    const usageData = rawUsageData as any;
 
-    const subscribeMutation = useMutation({
-      mutationFn: (planId: string) => billingApi.subscribe(workspace!.id, planId),
-      onSuccess: () => {
-        toast({ type: "success", title: "Plan updated", description: "Your subscription has been updated." });
-        queryClient.invalidateQueries({ queryKey: ["billing-subscription", workspace?.id] });
+    const [subscribe, { isLoading: isSubscribing }] = useSubscribeMutation();
+    const subscribeMutation = {
+      isPending: isSubscribing,
+      mutate: (planId: string) => {
+        subscribe({ workspaceId: workspace!.id, planId }).unwrap().then(() => {
+          toast({ type: "success", title: "Plan updated", description: "Your subscription has been updated." });
+        }).catch(() => toast({ type: "error", title: "Failed to update plan" }));
       },
-      onError: () => toast({ type: "error", title: "Failed to update plan" }),
-    });
+    };
 
     const plans: any[] = plansData?.results || plansData || [];
     const currentPlan = subData?.plan?.name || subData?.plan_name;
@@ -499,26 +486,25 @@ export default function SettingsPage() {
       is_active: true,
     });
 
-    const { data, isLoading } = useQuery({
-      queryKey: ["webchat-config", workspace?.id],
-      queryFn: () => webchatApi.config(workspace!.id).then((r) => r.data),
-      enabled: !!workspace,
-    });
+    const { data: rawData, isLoading } = useGetWebchatConfigQuery(workspace?.id as string, { skip: !workspace });
+    const data = rawData as any;
 
     useEffect(() => {
       if (data) setConfig((prev: any) => ({ ...prev, ...data }));
     }, [data]);
 
-    const saveMutation = useMutation({
-      mutationFn: () => webchatApi.updateConfig(workspace!.id, config),
-      onSuccess: () => {
-        toast({ type: "success", title: "Webchat config saved" });
-        queryClient.invalidateQueries({ queryKey: ["webchat-config", workspace?.id] });
+    const [updateWebchatConfig, { isLoading: isSaving }] = useUpdateWebchatConfigMutation();
+    const saveMutation = {
+      isPending: isSaving,
+      mutate: () => {
+        updateWebchatConfig({ workspaceId: workspace!.id, data: config }).unwrap().then(() => {
+          toast({ type: "success", title: "Webchat config saved" });
+        }).catch(() => toast({ type: "error", title: "Failed to save webchat config" }));
       },
-      onError: () => toast({ type: "error", title: "Failed to save webchat config" }),
-    });
+    };
 
     return (
+      <div className="space-y-6">
       <Card className="max-w-2xl">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -583,30 +569,69 @@ export default function SettingsPage() {
           </Button>
         </CardFooter>
       </Card>
+
+      {/* Embed code */}
+      <Card className="max-w-2xl">
+        <CardHeader>
+          <CardTitle>Embed Code</CardTitle>
+          <CardDescription>
+            Paste this code before the closing &lt;/body&gt; tag on your website.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="relative">
+            <pre className="rounded-lg bg-muted p-4 text-xs overflow-x-auto whitespace-pre-wrap break-all">
+              {"<script src=\"https://chatpilot.devtosoft.tech/static/webchat/widget.js\""}
+              {"\n        data-workspace=\"" + (workspace?.id || "YOUR_WORKSPACE_ID") + "\""}
+              {"\n        async></script>"}
+            </pre>
+            <Button
+              size="sm"
+              variant="outline"
+              className="absolute top-2 right-2"
+              onClick={() => {
+                const code = '<script src="https://chatpilot.devtosoft.tech/static/webchat/widget.js" data-workspace="' + (workspace?.id || "") + '" async></' + "script>";
+                navigator.clipboard.writeText(code);
+                toast({ type: "success", title: "Copied!", description: "Embed code copied to clipboard." });
+              }}
+            >
+              Copy
+            </Button>
+          </div>
+          <p className="mt-3 text-xs text-muted-foreground">
+            Once added, visitors will see a chat bubble in the corner of your website.
+            Messages will appear in your ChatPilot inbox.
+          </p>
+        </CardContent>
+      </Card>
+      </div>
     );
   }
 
   // ─── Notifications Tab ─────────────────────────────────────
   function NotificationsTab() {
-    const { data, isLoading } = useQuery({
-      queryKey: ["settings-notifications"],
-      queryFn: () => notificationApi.list().then((r) => r.data),
-    });
+    const { data: rawData, isLoading } = useGetNotificationsQuery({});
+    const data = rawData as any;
 
     const notifications: any[] = data?.results || data || [];
 
-    const markReadMutation = useMutation({
-      mutationFn: (id: string) => notificationApi.markRead(id),
-      onSuccess: () => queryClient.invalidateQueries({ queryKey: ["settings-notifications"] }),
-    });
-
-    const markAllMutation = useMutation({
-      mutationFn: () => notificationApi.markAllRead(),
-      onSuccess: () => {
-        toast({ type: "success", title: "All notifications marked as read" });
-        queryClient.invalidateQueries({ queryKey: ["settings-notifications"] });
+    const [markRead, { isLoading: isMarkingRead }] = useMarkReadMutation();
+    const markReadMutation = {
+      isPending: isMarkingRead,
+      mutate: (id: string) => {
+        markRead(id).unwrap().catch(() => {});
       },
-    });
+    };
+
+    const [markAllRead, { isLoading: isMarkingAll }] = useMarkAllReadMutation();
+    const markAllMutation = {
+      isPending: isMarkingAll,
+      mutate: () => {
+        markAllRead().unwrap().then(() => {
+          toast({ type: "success", title: "All notifications marked as read" });
+        }).catch(() => {});
+      },
+    };
 
     return (
       <Card>

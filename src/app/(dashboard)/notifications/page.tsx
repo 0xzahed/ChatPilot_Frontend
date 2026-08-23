@@ -1,8 +1,6 @@
 "use client";
 
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/components/ui/toast";
-import { notificationApi } from "@/lib/api";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -10,6 +8,11 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Spinner } from "@/components/ui/spinner";
 import { timeAgo } from "@/lib/utils";
+import {
+  useGetNotificationsQuery,
+  useMarkReadMutation,
+  useMarkAllReadMutation,
+} from "@/redux/api/notificationApi";
 import {
   Bell, CheckCheck, Check, MessageSquare, ShoppingCart,
   AlertTriangle, UserPlus, Info,
@@ -25,30 +28,29 @@ const ICON_BY_TYPE: Record<string, React.ComponentType<{ className?: string }>> 
 
 export default function NotificationsPage() {
   const { toast } = useToast();
-  const queryClient = useQueryClient();
 
-  const { data, isLoading } = useQuery({
-    queryKey: ["notifications"],
-    queryFn: () => notificationApi.list().then((r) => r.data),
-  });
-
+  const { data: rawData, isLoading } = useGetNotificationsQuery(undefined);
+  const data = rawData as any;
   const notifications: any[] = data?.results || data || [];
   const unreadCount = notifications.filter((n) => !n.is_read).length;
 
-  const markReadMutation = useMutation({
-    mutationFn: (id: string) => notificationApi.markRead(id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["notifications"] }),
-    onError: () => toast({ type: "error", title: "Failed to mark as read" }),
-  });
-
-  const markAllMutation = useMutation({
-    mutationFn: () => notificationApi.markAllRead(),
-    onSuccess: () => {
-      toast({ type: "success", title: "All notifications marked as read" });
-      queryClient.invalidateQueries({ queryKey: ["notifications"] });
+  const [markRead, { isLoading: isMarking }] = useMarkReadMutation();
+  const markReadMutation = {
+    isPending: isMarking,
+    mutate: (id: string) => {
+      markRead(id).unwrap().catch(() => toast({ type: "error", title: "Failed to mark as read" }));
     },
-    onError: () => toast({ type: "error", title: "Failed to mark all as read" }),
-  });
+  };
+
+  const [markAllRead, { isLoading: isMarkingAll }] = useMarkAllReadMutation();
+  const markAllMutation = {
+    isPending: isMarkingAll,
+    mutate: () => {
+      markAllRead().unwrap().then(() => {
+        toast({ type: "success", title: "All notifications marked as read" });
+      }).catch(() => toast({ type: "error", title: "Failed to mark all as read" }));
+    },
+  };
 
   return (
     <div className="p-6 space-y-6">

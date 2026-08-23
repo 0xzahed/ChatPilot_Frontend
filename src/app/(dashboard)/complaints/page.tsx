@@ -1,10 +1,12 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useWorkspace } from "@/providers/workspace-context";
 import { useToast } from "@/components/ui/toast";
-import { complaintApi } from "@/lib/api";
+import {
+  useGetComplaintsQuery,
+  useUpdateComplaintMutation,
+} from "@/redux/api/complaintApi";
 import {
   Card,
   CardContent,
@@ -100,7 +102,6 @@ interface ComplaintListResponse {
 export default function ComplaintsPage() {
   const { workspace } = useWorkspace();
   const { toast } = useToast();
-  const queryClient = useQueryClient();
 
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -121,36 +122,40 @@ export default function ComplaintsPage() {
     setPage(1);
   }, [debouncedSearch, priority, status]);
 
-  const { data, isLoading, isError } = useQuery<ComplaintListResponse>({
-    queryKey: ["complaints", workspace?.id, debouncedSearch, priority, status, page],
-    queryFn: () =>
-      complaintApi
-        .list({
-          workspace_id: workspace?.id,
-          search: debouncedSearch || undefined,
-          priority: priority || undefined,
-          status: status || undefined,
-          page,
-          limit: PAGE_SIZE,
+  const {
+    data: rawData,
+    isLoading,
+    isError,
+  } = useGetComplaintsQuery(
+    {
+      workspace_id: workspace?.id,
+      search: debouncedSearch || undefined,
+      priority: priority || undefined,
+      status: status || undefined,
+      page,
+      limit: PAGE_SIZE,
+    },
+    { skip: !workspace }
+  );
+  const data = rawData as any;
+
+  const [updateComplaint, { isLoading: isUpdating }] = useUpdateComplaintMutation();
+  const updateMutation = {
+    isPending: isUpdating,
+    mutate: ({ id, data }: { id: string; data: any }) => {
+      updateComplaint({ id, data })
+        .unwrap()
+        .then(() => {
+          toast({ type: "success", title: "Complaint status updated" });
+          setSelectedComplaint(null);
         })
-        .then((r) => r.data),
-    enabled: !!workspace,
-  });
-
-  const updateMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: any }) =>
-      complaintApi.update(id, data),
-    onSuccess: () => {
-      toast({ type: "success", title: "Complaint status updated" });
-      queryClient.invalidateQueries({ queryKey: ["complaints"] });
-      setSelectedComplaint(null);
+        .catch(() => {
+          toast({ type: "error", title: "Failed to update complaint" });
+        });
     },
-    onError: () => {
-      toast({ type: "error", title: "Failed to update complaint" });
-    },
-  });
+  };
 
-  const complaints = data?.results || [];
+  const complaints: Complaint[] = data?.results || [];
   const totalPages = data?.count
     ? Math.ceil(data.count / PAGE_SIZE)
     : 1;
@@ -316,7 +321,7 @@ export default function ComplaintsPage() {
                               </AvatarFallback>
                             </Avatar>
                             <span className="text-sm">
-                              {complaint.assigned_to.name}
+                              {complaint.assigned_to.name || "Unassigned"}
                             </span>
                           </div>
                         ) : (
@@ -462,7 +467,7 @@ export default function ComplaintsPage() {
                     </AvatarFallback>
                   </Avatar>
                   <span className="text-sm">
-                    {selectedComplaint.assigned_to.name}
+                    {selectedComplaint.assigned_to.name || "Unassigned"}
                   </span>
                 </div>
               ) : (

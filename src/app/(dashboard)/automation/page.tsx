@@ -1,10 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useWorkspace } from "@/providers/workspace-context";
 import { useToast } from "@/components/ui/toast";
-import { automationApi } from "@/lib/api";
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -17,6 +15,13 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Spinner } from "@/components/ui/spinner";
 import { formatDate, timeAgo } from "@/lib/utils";
+import {
+  useGetRulesQuery,
+  useCreateRuleMutation,
+  useUpdateRuleMutation,
+  useDeleteRuleMutation,
+  useGetCommentsQuery,
+} from "@/redux/api/automationApi";
 import {
   Zap, Plus, Pencil, Trash2, MessageSquare, Bot,
 } from "lucide-react";
@@ -56,60 +61,59 @@ const EMPTY_FORM: RuleForm = {
 export default function AutomationPage() {
   const { workspace } = useWorkspace();
   const { toast } = useToast();
-  const queryClient = useQueryClient();
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<RuleForm>(EMPTY_FORM);
 
-  const { data, isLoading } = useQuery({
-    queryKey: ["automation-rules"],
-    queryFn: () => automationApi.rules().then((r) => r.data),
-  });
+  const { data: rawData, isLoading } = useGetRulesQuery(undefined, { skip: !workspace });
+  const data = rawData as any;
+  const rules: any[] = data?.results || data || [];
 
-  const { data: commentsData, isLoading: commentsLoading } = useQuery({
-    queryKey: ["automation-comments"],
-    queryFn: () => automationApi.comments().then((r) => r.data),
-  });
-
-  const rules: any[] = data?.results || [];
+  const { data: commentsRawData, isLoading: commentsLoading } = useGetCommentsQuery(undefined, { skip: !workspace });
+  const commentsData = commentsRawData as any;
   const comments: any[] = commentsData?.results || commentsData || [];
 
-  const createMutation = useMutation({
-    mutationFn: (payload: any) => automationApi.createRule({ ...payload, workspace_id: workspace!.id }),
-    onSuccess: () => {
-      toast({ type: "success", title: "Rule created", description: "Your automation rule has been created." });
-      queryClient.invalidateQueries({ queryKey: ["automation-rules"] });
-      setDialogOpen(false);
+  const [createRule, { isLoading: isCreating }] = useCreateRuleMutation();
+  const createMutation = {
+    isPending: isCreating,
+    mutate: (payload: any) => {
+      createRule({ ...payload, workspace_id: workspace!.id }).unwrap().then(() => {
+        toast({ type: "success", title: "Rule created", description: "Your automation rule has been created." });
+        setDialogOpen(false);
+      }).catch(() => toast({ type: "error", title: "Failed to create rule" }));
     },
-    onError: () => toast({ type: "error", title: "Failed to create rule" }),
-  });
+  };
 
-  const updateMutation = useMutation({
-    mutationFn: ({ id, payload }: { id: string; payload: any }) => automationApi.updateRule(id, payload),
-    onSuccess: () => {
-      toast({ type: "success", title: "Rule updated", description: "Your automation rule has been updated." });
-      queryClient.invalidateQueries({ queryKey: ["automation-rules"] });
-      setDialogOpen(false);
+  const [updateRule, { isLoading: isUpdating }] = useUpdateRuleMutation();
+  const updateMutation = {
+    isPending: isUpdating,
+    mutate: ({ id, payload }: { id: string; payload: any }) => {
+      updateRule({ id, data: payload }).unwrap().then(() => {
+        toast({ type: "success", title: "Rule updated", description: "Your automation rule has been updated." });
+        setDialogOpen(false);
+      }).catch(() => toast({ type: "error", title: "Failed to update rule" }));
     },
-    onError: () => toast({ type: "error", title: "Failed to update rule" }),
-  });
+  };
 
-  const deleteMutation = useMutation({
-    mutationFn: (id: string) => automationApi.deleteRule(id),
-    onSuccess: () => {
-      toast({ type: "success", title: "Rule deleted" });
-      queryClient.invalidateQueries({ queryKey: ["automation-rules"] });
+  const [deleteRule, { isLoading: isDeleting }] = useDeleteRuleMutation();
+  const deleteMutation = {
+    isPending: isDeleting,
+    mutate: (id: string) => {
+      deleteRule(id).unwrap().then(() => {
+        toast({ type: "success", title: "Rule deleted" });
+      }).catch(() => toast({ type: "error", title: "Failed to delete rule" }));
     },
-    onError: () => toast({ type: "error", title: "Failed to delete rule" }),
-  });
+  };
 
-  const toggleMutation = useMutation({
-    mutationFn: ({ id, is_active }: { id: string; is_active: boolean }) =>
-      automationApi.updateRule(id, { is_active }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["automation-rules"] }),
-    onError: () => toast({ type: "error", title: "Failed to update rule" }),
-  });
+  const toggleMutation = {
+    isPending: false,
+    mutate: ({ id, is_active }: { id: string; is_active: boolean }) => {
+      updateRule({ id, data: { is_active } }).unwrap().catch(() =>
+        toast({ type: "error", title: "Failed to update rule" })
+      );
+    },
+  };
 
   const openCreate = () => {
     setEditingId(null);

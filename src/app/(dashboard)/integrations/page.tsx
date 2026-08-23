@@ -1,22 +1,33 @@
 "use client";
 
-import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useState, useEffect, Suspense } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 import { useWorkspace } from "@/providers/workspace-context";
 import { useToast } from "@/components/ui/toast";
-import { integrationApi } from "@/lib/api";
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Spinner } from "@/components/ui/spinner";
+import { Dialog } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  useGetIntegrationsQuery,
+  useConnectIntegrationMutation,
+  useCompleteIntegrationMutation,
+  useDisconnectIntegrationMutation,
+  useSyncIntegrationMutation,
+  useSetupWhatsAppMutation,
+  useGetWebhookEventsQuery,
+} from "@/redux/api/integrationApi";
 import {
   Table, TableHeader, TableBody, TableRow, TableHead, TableCell,
 } from "@/components/ui/table";
 import { formatDateTime } from "@/lib/utils";
 import {
-  MessageCircle, Globe, ShoppingBag, RefreshCw, Plug, Webhook,
+  MessageCircle, Globe, RefreshCw, Plug, Webhook,
 } from "lucide-react";
 
 // ─── Brand icons (not available in this lucide version) ───────
@@ -75,78 +86,141 @@ const INTEGRATIONS: IntegrationDef[] = [
     icon: Globe,
     color: "text-[#6366f1]",
   },
-  {
-    type: "shopify",
-    name: "Shopify",
-    description: "Sync orders, products, and customers from your Shopify store.",
-    icon: ShoppingBag,
-    color: "text-[#96bf48]",
-  },
-  {
-    type: "woocommerce",
-    name: "WooCommerce",
-    description: "Connect your WooCommerce store for order and product sync.",
-    icon: ShoppingBag,
-    color: "text-[#7f54b3]",
-  },
 ];
 
 export default function IntegrationsPage() {
+  return (
+    <Suspense fallback={<div className="p-6"><Spinner className="h-6 w-6" /></div>}>
+      <IntegrationsContent />
+    </Suspense>
+  );
+}
+
+function IntegrationsContent() {
   const { workspace } = useWorkspace();
   const { toast } = useToast();
-  const queryClient = useQueryClient();
+  const searchParams = useSearchParams();
+  const router = useRouter();
   const [syncingId, setSyncingId] = useState<string | null>(null);
 
-  const { data, isLoading } = useQuery({
-    queryKey: ["integrations"],
-    queryFn: () => integrationApi.list().then((r) => r.data),
-  });
+  const { data: rawData, isLoading } = useGetIntegrationsQuery(undefined, { skip: !workspace });
+  const data = rawData as any;
+  const { data: rawWebhookData, isLoading: webhooksLoading } = useGetWebhookEventsQuery(undefined, { skip: !workspace });
+  const webhookData = rawWebhookData as any;
 
-  const { data: webhookData, isLoading: webhooksLoading } = useQuery({
-    queryKey: ["webhook-events"],
-    queryFn: () => integrationApi.webhookEvents().then((r) => r.data),
-  });
-
-  const integrations: any[] = data?.results || [];
+  const integrations: any[] = data?.results || data || [];
   const webhookEvents: any[] = webhookData?.results || webhookData || [];
 
   const findByType = (type: string) =>
     integrations.find((i) => i.integration_type === type);
 
-  const connectMutation = useMutation({
-    mutationFn: (type: string) => integrationApi.connect(type, workspace!.id),
-    onSuccess: () => {
-      toast({ type: "success", title: "Integration connected", description: "Your channel is now connected." });
-      queryClient.invalidateQueries({ queryKey: ["integrations"] });
-    },
-    onError: () => {
-      toast({ type: "error", title: "Connection failed", description: "Could not connect the integration. Please try again." });
-    },
-  });
+  const [connectIntegration, { isLoading: isConnecting }] = useConnectIntegrationMutation();
+  const [completeIntegration] = useCompleteIntegrationMutation();
+  const [setupWhatsApp, { isLoading: isSettingUpWhatsApp }] = useSetupWhatsAppMutation();
+  const [whatsappModalOpen, setWhatsappModalOpen] = useState(false);
+  const [whatsappForm, setWhatsappForm] = useState({ accessToken: "", phoneNumberId: "" });
 
-  const disconnectMutation = useMutation({
-    mutationFn: (id: string) => integrationApi.disconnect(id),
-    onSuccess: () => {
-      toast({ type: "success", title: "Disconnected", description: "The integration has been disconnected." });
-      queryClient.invalidateQueries({ queryKey: ["integrations"] });
+  const connectMutation = {
+    isPending: isConnecting,
+    variables: undefined as string | undefined,
+    mutate: (type: string) => {
+      connectMutation.variables = type;
+      connectIntegration({ type, workspaceId: workspace!.id }).unwrap().then((res) => {
+        if (res?.requires_manual_setup) {
+          // WhatsApp — open manual setup modal
+          setWhatsappModalOpen(true);
+        } else if (res?.auth_url) {
+          window.location.href = res.auth_url;
+        } else {
+          toast({ type: "success", title: "Integration connected", description: "Your channel is now connected." });
+        }
+      }).catch((err: any) => {
+        toast({
+          type: "error",
+          title: "Connection failed",
+          description: err?.data?.error || err?.response?.data?.error || "Could not connect the integration. Please try again.",
+        });
+      });
     },
-    onError: () => {
-      toast({ type: "error", title: "Disconnect failed", description: "Could not disconnect the integration." });
-    },
-  });
+  };
 
+  const handleWhatsAppSubmit = () => {
+    if (!whatsappForm.accessToken || !whatsappForm.phoneNumberId) {
+      toast({ type: "error", title: "Missing fields", description: "Please fill in all fields." });
+      return;
+    }
+    setupWhatsApp({
+      workspaceId: workspace!.id,
+      accessToken: whatsappForm.accessToken,
+      phoneNumberId: whatsappForm.phoneNumberId,
+    }).unwrap().then(() => {
+      toast({ type: "success", title: "WhatsApp connected", description: "Your WhatsApp Business account is now connected." });
+      setWhatsappModalOpen(false);
+      setWhatsappForm({ accessToken: "", phoneNumberId: "" });
+    }).catch((err: any) => {
+      toast({
+        type: "error",
+        title: "Setup failed",
+        description: err?.data?.error || "Could not connect WhatsApp. Check your credentials.",
+      });
+    });
+  };
+
+  const [disconnectIntegration, { isLoading: isDisconnecting }] = useDisconnectIntegrationMutation();
+  const disconnectMutation = {
+    isPending: isDisconnecting,
+    mutate: (id: string) => {
+      disconnectIntegration(id).unwrap().then(() => {
+        toast({ type: "success", title: "Disconnected", description: "The integration has been disconnected." });
+      }).catch(() => {
+        toast({ type: "error", title: "Disconnect failed", description: "Could not disconnect the integration." });
+      });
+    },
+  };
+
+  const [syncIntegration] = useSyncIntegrationMutation();
   const handleSync = async (id: string) => {
     setSyncingId(id);
     try {
-      await integrationApi.sync(id);
+      await syncIntegration(id).unwrap();
       toast({ type: "success", title: "Sync started", description: "Your data is being synced." });
-      queryClient.invalidateQueries({ queryKey: ["integrations"] });
     } catch {
       toast({ type: "error", title: "Sync failed", description: "Could not start syncing." });
     } finally {
       setSyncingId(null);
     }
   };
+
+  // Handle OAuth callback redirect from backend
+  useEffect(() => {
+    const callbackType = searchParams.get("callback");
+    const code = searchParams.get("code");
+    const state = searchParams.get("state");
+    const error = searchParams.get("error");
+
+    if (error) {
+      toast({ type: "error", title: "Connection failed", description: error });
+      router.replace("/integrations");
+      return;
+    }
+
+    if (callbackType && code && state) {
+      completeIntegration({ type: callbackType, code, state })
+        .unwrap()
+        .then(() => {
+          toast({ type: "success", title: "Integration connected", description: "Your channel is now connected." });
+          router.replace("/integrations");
+        })
+        .catch((err: any) => {
+          toast({
+            type: "error",
+            title: "Connection failed",
+            description: err?.data?.error || "Could not complete the connection.",
+          });
+          router.replace("/integrations");
+        });
+    }
+  }, [searchParams, toast, router, completeIntegration]);
 
   return (
     <div className="p-6 space-y-6">
@@ -239,6 +313,45 @@ export default function IntegrationsPage() {
               );
             })}
       </div>
+
+      {/* WhatsApp setup modal */}
+      <Dialog
+        open={whatsappModalOpen}
+        onClose={() => setWhatsappModalOpen(false)}
+        title="Connect WhatsApp Business"
+        description="Enter your WhatsApp Cloud API credentials from Meta Business Manager."
+      >
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="wa-token">Access Token</Label>
+            <Input
+              id="wa-token"
+              type="password"
+              value={whatsappForm.accessToken}
+              onChange={(e) => setWhatsappForm({ ...whatsappForm, accessToken: e.target.value })}
+              placeholder="EAAG..."
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="wa-phone">Phone Number ID</Label>
+            <Input
+              id="wa-phone"
+              value={whatsappForm.phoneNumberId}
+              onChange={(e) => setWhatsappForm({ ...whatsappForm, phoneNumberId: e.target.value })}
+              placeholder="123456789012"
+            />
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Get these from Meta Business Manager → WhatsApp → API Setup.
+          </p>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setWhatsappModalOpen(false)}>Cancel</Button>
+            <Button onClick={handleWhatsAppSubmit} disabled={isSettingUpWhatsApp}>
+              {isSettingUpWhatsApp ? <Spinner size="sm" className="h-4 w-4" /> : "Connect"}
+            </Button>
+          </div>
+        </div>
+      </Dialog>
 
       {/* Webhook events */}
       <Card>

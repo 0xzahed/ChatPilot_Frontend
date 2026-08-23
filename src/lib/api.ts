@@ -134,6 +134,8 @@ export const aiApi = {
   updateInstructions: (workspaceId: string, data: any) => api.patch(`/ai/${workspaceId}/instructions/`, data),
   events: () => api.get("/ai/events/"),
   usage: (workspaceId: string) => api.get(`/ai/${workspaceId}/usage/`),
+  test: (workspaceId: string, message: string) =>
+    api.post(`/ai/${workspaceId}/test/`, { message }),
 };
 
 // ─── Integration API ──────────────────────────────────────────
@@ -206,4 +208,18 @@ export const auditApi = {
 export const webchatApi = {
   config: (workspaceId: string) => api.get(`/webchat/config/${workspaceId}/`),
   updateConfig: (workspaceId: string, data: any) => api.patch(`/webchat/config/${workspaceId}/`, data),
+};
+
+// ─── Platform Admin API ───────────────────────────────────────
+export const adminApi = {
+  stats: () => api.get("/admin/stats/"),
+  users: (params?: any) => api.get("/admin/users/", { params }),
+  getUser: (id: string) => api.get(`/admin/users/${id}/`),
+  updateUser: (id: string, data: any) => api.patch(`/admin/users/${id}/`, data),
+  deleteUser: (id: string) => api.delete(`/admin/users/${id}/`),
+  workspaces: (params?: any) => api.get("/admin/workspaces/", { params }),
+  getWorkspace: (id: string) => api.get(`/admin/workspaces/${id}/`),
+  updateWorkspace: (id: string, data: any) => api.patch(`/admin/workspaces/${id}/`, data),
+  deleteWorkspace: (id: string) => api.delete(`/admin/workspaces/${id}/`),
+  audit: (params?: any) => api.get("/admin/audit/", { params }),
 };

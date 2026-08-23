@@ -1,14 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { ConversationList } from "@/components/inbox/conversation-list";
 import { ChatInterface } from "@/components/inbox/chat-interface";
 import { CustomerDetails } from "@/components/inbox/customer-details";
 import { MessageSquare, User, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 
-export default function InboxPage() {
+function InboxContent() {
   const searchParams = useSearchParams();
   const initialId = searchParams.get("id");
   const [selectedId, setSelectedId] = useState<string | null>(initialId);
@@ -51,5 +52,19 @@ export default function InboxPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function InboxPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex h-full items-center justify-center">
+          <Skeleton className="h-8 w-8 rounded-full" />
+        </div>
+      }
+    >
+      <InboxContent />
+    </Suspense>
   );
 }

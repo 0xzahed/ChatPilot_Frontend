@@ -1,10 +1,15 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useWorkspace } from "@/providers/workspace-context";
 import { useToast } from "@/components/ui/toast";
-import { productApi } from "@/lib/api";
+import {
+  useGetProductsQuery,
+  useGetCategoriesQuery,
+  useCreateProductMutation,
+  useUpdateProductMutation,
+  useDeleteProductMutation,
+} from "@/redux/api/productApi";
 import {
   Card,
   CardContent,
@@ -62,7 +67,6 @@ const emptyForm = {
 export default function ProductsPage() {
   const { workspace } = useWorkspace();
   const { toast } = useToast();
-  const queryClient = useQueryClient();
 
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -79,68 +83,72 @@ export default function ProductsPage() {
     return () => clearTimeout(timer);
   }, [search]);
 
-  const { data, isLoading, isError } = useQuery<ProductListResponse>({
-    queryKey: ["products", workspace?.id, debouncedSearch, category],
-    queryFn: () =>
-      productApi
-        .list({
-          workspace_id: workspace?.id,
-          search: debouncedSearch || undefined,
-          category: category || undefined,
-        })
-        .then((r) => r.data),
-    enabled: !!workspace,
-  });
+  const {
+    data: rawData,
+    isLoading,
+    isError,
+  } = useGetProductsQuery(
+    {
+      workspace_id: workspace?.id,
+      search: debouncedSearch || undefined,
+      category: category || undefined,
+    },
+    { skip: !workspace }
+  );
+  const data = rawData as any;
 
-  const { data: categoriesData } = useQuery({
-    queryKey: ["product-categories", workspace?.id],
-    queryFn: () => productApi.categories().then((r) => r.data),
-    enabled: !!workspace,
+  const { data: categoriesRawData } = useGetCategoriesQuery(undefined, {
+    skip: !workspace,
   });
+  const categoriesData = categoriesRawData as any;
 
   const categories: string[] =
     categoriesData?.results?.map((c: any) => c.name || c) ||
     (Array.isArray(categoriesData) ? categoriesData : []);
 
-  const createMutation = useMutation({
-    mutationFn: (data: any) => productApi.create(data),
-    onSuccess: () => {
-      toast({ type: "success", title: "Product created successfully" });
-      queryClient.invalidateQueries({ queryKey: ["products"] });
-      queryClient.invalidateQueries({ queryKey: ["product-categories"] });
-      closeDialog();
+  const [createProduct, { isLoading: isCreating }] = useCreateProductMutation();
+  const createMutation = {
+    isPending: isCreating,
+    mutate: (payload: any) => {
+      createProduct(payload)
+        .unwrap()
+        .then(() => {
+          toast({ type: "success", title: "Product created successfully" });
+          closeDialog();
+        })
+        .catch(() => toast({ type: "error", title: "Failed to create product" }));
     },
-    onError: () => {
-      toast({ type: "error", title: "Failed to create product" });
-    },
-  });
+  };
 
-  const updateMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: any }) =>
-      productApi.update(id, data),
-    onSuccess: () => {
-      toast({ type: "success", title: "Product updated successfully" });
-      queryClient.invalidateQueries({ queryKey: ["products"] });
-      closeDialog();
+  const [updateProduct, { isLoading: isUpdating }] = useUpdateProductMutation();
+  const updateMutation = {
+    isPending: isUpdating,
+    mutate: ({ id, data }: { id: string; data: any }) => {
+      updateProduct({ id, data })
+        .unwrap()
+        .then(() => {
+          toast({ type: "success", title: "Product updated successfully" });
+          closeDialog();
+        })
+        .catch(() => toast({ type: "error", title: "Failed to update product" }));
     },
-    onError: () => {
-      toast({ type: "error", title: "Failed to update product" });
-    },
-  });
+  };
 
-  const deleteMutation = useMutation({
-    mutationFn: (id: string) => productApi.delete(id),
-    onSuccess: () => {
-      toast({ type: "success", title: "Product deleted" });
-      queryClient.invalidateQueries({ queryKey: ["products"] });
-      setShowDeleteConfirm(null);
+  const [deleteProduct, { isLoading: isDeleting }] = useDeleteProductMutation();
+  const deleteMutation = {
+    isPending: isDeleting,
+    mutate: (id: string) => {
+      deleteProduct(id)
+        .unwrap()
+        .then(() => {
+          toast({ type: "success", title: "Product deleted" });
+          setShowDeleteConfirm(null);
+        })
+        .catch(() => toast({ type: "error", title: "Failed to delete product" }));
     },
-    onError: () => {
-      toast({ type: "error", title: "Failed to delete product" });
-    },
-  });
+  };
 
-  const products = data?.results || [];
+  const products: Product[] = data?.results || [];
 
   const openAdd = () => {
     setEditingProduct(null);

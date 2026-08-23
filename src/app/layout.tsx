@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "OpenChat — AI Omnichannel Sales & Support",
+  title: "ChatPilot — AI Omnichannel Sales & Support",
   description: "AI-powered customer support and sales across Facebook, Instagram, WhatsApp, and Website",
 };
 

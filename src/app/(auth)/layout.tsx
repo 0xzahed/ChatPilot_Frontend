@@ -10,7 +10,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary-foreground/20">
             <MessageSquare className="h-5 w-5" />
           </div>
-          <span className="text-xl font-bold">OpenChat</span>
+          <span className="text-xl font-bold">ChatPilot</span>
         </div>
         <div>
           <h1 className="text-4xl font-bold leading-tight">
@@ -21,7 +21,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
           </p>
         </div>
         <div className="text-sm text-primary-foreground/60">
-          © 2026 OpenChat. All rights reserved.
+          © 2026 ChatPilot. All rights reserved.
         </div>
       </div>
 
@@ -32,7 +32,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
               <MessageSquare className="h-5 w-5" />
             </div>
-            <span className="text-xl font-bold">OpenChat</span>
+            <span className="text-xl font-bold">ChatPilot</span>
           </div>
           {children}
         </div>

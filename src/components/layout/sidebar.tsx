@@ -8,7 +8,8 @@ import { useWorkspace } from "@/providers/workspace-context";
 import {
   LayoutDashboard, Inbox, Users, Package, ShoppingCart,
   AlertTriangle, Zap, BarChart3, Settings, Plug, Tag,
-  MessageSquare, ChevronDown, LogOut, User,
+  MessageSquare, ChevronDown, LogOut, User, ShieldCheck,
+  CreditCard,
 } from "lucide-react";
 import { Dropdown } from "@/components/ui/dropdown";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -31,7 +32,14 @@ const navItems = [
 const settingsItems = [
   { href: "/settings", label: "General", icon: Settings },
   { href: "/settings/ai", label: "AI Settings", icon: MessageSquare },
-  { href: "/settings/billing", label: "Billing", icon: ShoppingCart },
+  { href: "/settings/billing", label: "Billing", icon: CreditCard },
+];
+
+const adminItems = [
+  { href: "/admin", label: "Overview", icon: LayoutDashboard },
+  { href: "/admin/users", label: "Users", icon: Users },
+  { href: "/admin/workspaces", label: "Workspaces", icon: ShieldCheck },
+  { href: "/admin/audit", label: "Audit Logs", icon: AlertTriangle },
 ];
 
 export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
@@ -55,7 +63,7 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
         <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
           <MessageSquare className="h-5 w-5" />
         </div>
-        <span className="text-lg font-bold">OpenChat</span>
+        <span className="text-lg font-bold">ChatPilot</span>
       </div>
 
       {/* Workspace selector */}
@@ -116,6 +124,33 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
             </Link>
           ))}
         </div>
+
+        {user?.is_platform_admin && (
+          <>
+            <div className="my-4 border-t border-sidebar-border" />
+            <div className="space-y-1">
+              <p className="px-3 pb-2 text-xs font-semibold uppercase text-muted-foreground flex items-center gap-1.5">
+                <ShieldCheck className="h-3 w-3" /> Platform Admin
+              </p>
+              {adminItems.map((item) => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={handleNavClick}
+                  className={cn(
+                    "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                    isActive(item.href)
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:bg-sidebar-accent hover:text-foreground"
+                  )}
+                >
+                  <item.icon className="h-4 w-4" />
+                  {item.label}
+                </Link>
+              ))}
+            </div>
+          </>
+        )}
       </nav>
 
       {/* User menu */}

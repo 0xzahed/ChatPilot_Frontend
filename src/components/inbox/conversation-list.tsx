@@ -1,17 +1,17 @@
 "use client";
 
-import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { conversationApi } from "@/lib/api";
+import {
+  useGetConversationsQuery,
+} from "@/redux/api/conversationApi";
+import { useInboxWebSocket } from "@/hooks/useInboxWebSocket";
 import { cn, timeAgo, getInitials } from "@/lib/utils";
 import { ChannelIcon } from "./channel-icon";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Search, Filter, Bot, AlertTriangle, ShoppingCart } from "lucide-react";
-import { io, Socket } from "socket.io-client";
+import { Search, Bot, AlertTriangle, ShoppingCart } from "lucide-react";
 
 interface ConversationListProps {
   selectedId: string | null;
@@ -34,7 +34,9 @@ export function ConversationList({ selectedId, onSelect }: ConversationListProps
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("all");
   const [channel, setChannel] = useState("all");
-  const queryClient = useQueryClient();
+
+  // Live sync via WebSocket — invalidates Conversation tags on new_message
+  useInboxWebSocket(selectedId || undefined);
 
   const params: any = {};
   if (search) params.search = search;
@@ -46,36 +48,20 @@ export function ConversationList({ selectedId, onSelect }: ConversationListProps
   if (filter === "has_order") params.has_order = "true";
   if (channel !== "all") params.channel = channel;
 
-  const { data, isLoading } = useQuery({
-    queryKey: ["conversations", params],
-    queryFn: () => conversationApi.list(params).then((r) => r.data),
-    refetchInterval: 10000,
+  const { data: rawData, isLoading, refetch } = useGetConversationsQuery(params, {
+    // Poll every 15s as a backup to WebSocket
+    pollingInterval: 15000,
   });
+  const data = rawData as any;
 
-  const conversations = data?.results || data || [];
+  const conversations: any[] = data?.results || data || [];
 
-  // WebSocket for realtime updates
+  // Refetch on window focus for freshest data
   useEffect(() => {
-    const wsUrl = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:8000";
-    const token = localStorage.getItem("access_token");
-    if (!token) return;
-
-    const socket: Socket = io(`${wsUrl}/ws/workspaces`, {
-      query: { token },
-      transports: ["websocket"],
-    });
-
-    socket.on("new_message", (data) => {
-      queryClient.invalidateQueries({ queryKey: ["conversations"] });
-      if (data.conversation_id) {
-        queryClient.invalidateQueries({ queryKey: ["messages", data.conversation_id] });
-      }
-    });
-
-    return () => {
-      socket.disconnect();
-    };
-  }, [queryClient]);
+    const onFocus = () => refetch();
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, [refetch]);
 
   return (
     <div className="flex h-full flex-col">
@@ -177,7 +163,7 @@ export function ConversationList({ selectedId, onSelect }: ConversationListProps
                   </span>
                 </div>
                 <p className={cn("text-xs text-muted-foreground truncate", conv.unread_count > 0 && "text-foreground font-medium")}>
-                  {conv.last_message_preview || "No messages yet"}
+                  {conv.last_message_preview || conv.last_message || "No messages yet"}
                 </p>
                 <div className="mt-1 flex items-center gap-1.5 flex-wrap">
                   {conv.handled_by === "ai" && (

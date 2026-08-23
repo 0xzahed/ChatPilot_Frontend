@@ -11,7 +11,7 @@ export default function LandingPage() {
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
               <MessageSquare className="h-5 w-5" />
             </div>
-            <span className="text-xl font-bold">OpenChat</span>
+            <span className="text-xl font-bold">ChatPilot</span>
           </div>
           <div className="flex items-center gap-4">
             <Link href="/login" className="text-sm font-medium text-muted-foreground hover:text-foreground">
@@ -92,7 +92,7 @@ export default function LandingPage() {
       {/* Footer */}
       <footer className="border-t border-border py-8">
         <div className="mx-auto max-w-7xl px-6 text-center text-sm text-muted-foreground">
-          OpenChat — AI Omnichannel Sales & Customer Support Platform
+          ChatPilot — AI Omnichannel Sales & Customer Support Platform
         </div>
       </footer>
     </div>

@@ -1,9 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
 import { useWorkspace } from "@/providers/workspace-context";
-import { analyticsApi } from "@/lib/api";
+import { useGetDashboardQuery, useGetChartsQuery } from "@/redux/api/analyticsApi";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -40,17 +39,15 @@ export default function AnalyticsPage() {
   const { workspace } = useWorkspace();
   const [days, setDays] = useState(30);
 
-  const { data: stats, isLoading } = useQuery({
-    queryKey: ["analytics-dashboard", workspace?.id, days],
-    queryFn: () => analyticsApi.dashboard(workspace!.id, days).then((r) => r.data),
-    enabled: !!workspace,
-  });
+  const { data: stats, isLoading } = useGetDashboardQuery(
+    { workspaceId: workspace!.id, days },
+    { skip: !workspace }
+  );
 
-  const { data: charts, isLoading: chartsLoading } = useQuery({
-    queryKey: ["analytics-charts", workspace?.id, days],
-    queryFn: () => analyticsApi.charts(workspace!.id, days).then((r) => r.data),
-    enabled: !!workspace,
-  });
+  const { data: charts, isLoading: chartsLoading } = useGetChartsQuery(
+    { workspaceId: workspace!.id, days },
+    { skip: !workspace }
+  );
 
   const statCards = [
     {

@@ -1,10 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useWorkspace } from "@/providers/workspace-context";
 import { useToast } from "@/components/ui/toast";
-import { labelApi } from "@/lib/api";
 import {
   Card,
   CardContent,
@@ -24,6 +22,12 @@ import {
   Trash2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import {
+  useGetLabelsQuery,
+  useCreateLabelMutation,
+  useUpdateLabelMutation,
+  useDeleteLabelMutation,
+} from "@/redux/api/labelApi";
 
 const COLOR_OPTIONS = [
   "blue",
@@ -66,7 +70,6 @@ const emptyForm = {
 export default function LabelsPage() {
   const { workspace } = useWorkspace();
   const { toast } = useToast();
-  const queryClient = useQueryClient();
 
   const [showDialog, setShowDialog] = useState(false);
   const [editingLabel, setEditingLabel] = useState<LabelItem | null>(null);
@@ -74,53 +77,53 @@ export default function LabelsPage() {
   const [showDeleteConfirm, setShowDeleteConfirm] =
     useState<LabelItem | null>(null);
 
-  const { data, isLoading, isError } = useQuery<LabelItem[]>({
-    queryKey: ["labels", workspace?.id],
-    queryFn: async () => {
-      const res = await labelApi.list();
-      return res.data?.results || res.data || [];
-    },
-    enabled: !!workspace,
+  const { data: rawData, isLoading, isError } = useGetLabelsQuery(undefined, {
+    skip: !workspace,
   });
+  const data = rawData as any;
+  const labels: any[] = data?.results || data || [];
 
-  const createMutation = useMutation({
-    mutationFn: (data: any) => labelApi.create(data),
-    onSuccess: () => {
-      toast({ type: "success", title: "Label created successfully" });
-      queryClient.invalidateQueries({ queryKey: ["labels"] });
-      closeDialog();
+  const [createLabel, { isLoading: isCreating }] = useCreateLabelMutation();
+  const createMutation = {
+    isPending: isCreating,
+    mutate: (payload: any) => {
+      createLabel(payload)
+        .unwrap()
+        .then(() => {
+          toast({ type: "success", title: "Label created successfully" });
+          closeDialog();
+        })
+        .catch(() => toast({ type: "error", title: "Failed to create label" }));
     },
-    onError: () => {
-      toast({ type: "error", title: "Failed to create label" });
-    },
-  });
+  };
 
-  const updateMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: any }) =>
-      labelApi.update(id, data),
-    onSuccess: () => {
-      toast({ type: "success", title: "Label updated successfully" });
-      queryClient.invalidateQueries({ queryKey: ["labels"] });
-      closeDialog();
+  const [updateLabel, { isLoading: isUpdating }] = useUpdateLabelMutation();
+  const updateMutation = {
+    isPending: isUpdating,
+    mutate: ({ id, data }: { id: string; data: any }) => {
+      updateLabel({ id, data })
+        .unwrap()
+        .then(() => {
+          toast({ type: "success", title: "Label updated successfully" });
+          closeDialog();
+        })
+        .catch(() => toast({ type: "error", title: "Failed to update label" }));
     },
-    onError: () => {
-      toast({ type: "error", title: "Failed to update label" });
-    },
-  });
+  };
 
-  const deleteMutation = useMutation({
-    mutationFn: (id: string) => labelApi.delete(id),
-    onSuccess: () => {
-      toast({ type: "success", title: "Label deleted" });
-      queryClient.invalidateQueries({ queryKey: ["labels"] });
-      setShowDeleteConfirm(null);
+  const [deleteLabel, { isLoading: isDeleting }] = useDeleteLabelMutation();
+  const deleteMutation = {
+    isPending: isDeleting,
+    mutate: (id: string) => {
+      deleteLabel(id)
+        .unwrap()
+        .then(() => {
+          toast({ type: "success", title: "Label deleted" });
+          setShowDeleteConfirm(null);
+        })
+        .catch(() => toast({ type: "error", title: "Failed to delete label" }));
     },
-    onError: () => {
-      toast({ type: "error", title: "Failed to delete label" });
-    },
-  });
-
-  const labels = data || [];
+  };
 
   const openAdd = () => {
     setEditingLabel(null);

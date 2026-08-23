@@ -1,12 +1,17 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
-import { conversationApi, customerApi, orderApi } from "@/lib/api";
+import {
+  useGetConversationQuery,
+} from "@/redux/api/conversationApi";
+import {
+  useGetCustomerQuery,
+  useGetCustomerTimelineQuery,
+} from "@/redux/api/customerApi";
+import { useGetOrdersQuery } from "@/redux/api/orderApi";
 import { cn, formatCurrency, formatDate, timeAgo, getInitials } from "@/lib/utils";
 import { ChannelBadge } from "./channel-icon";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -19,30 +24,24 @@ interface CustomerDetailsProps {
 }
 
 export function CustomerDetails({ conversationId }: CustomerDetailsProps) {
-  const { data: conversation } = useQuery({
-    queryKey: ["conversation", conversationId],
-    queryFn: () => conversationApi.get(conversationId).then((r) => r.data),
+  const { data: conversation } = useGetConversationQuery(conversationId);
+
+  const customerId = (conversation as any)?.customer;
+
+  const { data: rawCustomer, isLoading } = useGetCustomerQuery(customerId, {
+    skip: !customerId,
+  });
+  const customer = rawCustomer as any;
+  const { data: ordersData } = useGetOrdersQuery(
+    { customer: customerId },
+    { skip: !customerId }
+  );
+  const { data: timelineData } = useGetCustomerTimelineQuery(customerId, {
+    skip: !customerId,
   });
 
-  const customerId = conversation?.customer;
-
-  const { data: customer, isLoading } = useQuery({
-    queryKey: ["customer", customerId],
-    queryFn: () => customerApi.get(customerId).then((r) => r.data),
-    enabled: !!customerId,
-  });
-
-  const { data: orders } = useQuery({
-    queryKey: ["customer-orders", customerId],
-    queryFn: () => orderApi.list({ customer: customerId }).then((r) => r.data),
-    enabled: !!customerId,
-  });
-
-  const { data: timeline } = useQuery({
-    queryKey: ["customer-timeline", customerId],
-    queryFn: () => customerApi.timeline(customerId).then((r) => r.data),
-    enabled: !!customerId,
-  });
+  const orders: any[] = (ordersData as any)?.results || (ordersData as any) || [];
+  const timeline: any[] = (timelineData as any)?.results || (timelineData as any) || [];
 
   if (isLoading || !customer) {
     return (
@@ -166,7 +165,7 @@ export function CustomerDetails({ conversationId }: CustomerDetailsProps) {
       )}
 
       {/* Recent orders */}
-      {orders && (orders.results || orders).length > 0 && (
+      {orders.length > 0 && (
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-sm flex items-center gap-2">
@@ -174,7 +173,7 @@ export function CustomerDetails({ conversationId }: CustomerDetailsProps) {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
-            {(orders.results || orders).slice(0, 5).map((order: any) => (
+            {orders.slice(0, 5).map((order: any) => (
               <div key={order.id} className="flex items-center justify-between rounded-lg border border-border p-2">
                 <div>
                   <p className="text-xs font-medium">{order.order_number}</p>
@@ -200,7 +199,7 @@ export function CustomerDetails({ conversationId }: CustomerDetailsProps) {
       )}
 
       {/* Timeline */}
-      {timeline && (timeline.results || timeline).length > 0 && (
+      {timeline.length > 0 && (
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-sm flex items-center gap-2">
@@ -208,7 +207,7 @@ export function CustomerDetails({ conversationId }: CustomerDetailsProps) {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            {(timeline.results || timeline).slice(0, 10).map((event: any, idx: number) => (
+            {timeline.slice(0, 10).map((event: any, idx: number) => (
               <div key={event.id} className="flex gap-3">
                 <div className="flex flex-col items-center">
                   <div className="flex h-6 w-6 items-center justify-center rounded-full bg-muted">
@@ -220,7 +219,7 @@ export function CustomerDetails({ conversationId }: CustomerDetailsProps) {
                       <MessageSquare className="h-3 w-3" />
                     )}
                   </div>
-                  {idx < (timeline.results || timeline).length - 1 && (
+                  {idx < timeline.length - 1 && (
                     <div className="h-full w-px bg-border" />
                   )}
                 </div>

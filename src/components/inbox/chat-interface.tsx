@@ -1,9 +1,16 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { conversationApi } from "@/lib/api";
-import { cn, formatTime, timeAgo, getInitials } from "@/lib/utils";
+import {
+  useGetConversationQuery,
+  useGetMessagesQuery,
+  useSendMessageMutation,
+  useAiSuggestMutation,
+  useCloseConversationMutation,
+  useReopenConversationMutation,
+} from "@/redux/api/conversationApi";
+import { useInboxWebSocket } from "@/hooks/useInboxWebSocket";
+import { cn, formatTime, getInitials } from "@/lib/utils";
 import { ChannelBadge } from "./channel-icon";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -13,10 +20,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Dropdown } from "@/components/ui/dropdown";
 import { useToast } from "@/components/ui/toast";
 import {
-  Send, Bot, User, AlertTriangle, ShoppingCart, Sparkles,
-  MoreVertical, Check, X, Zap, Clock, Paperclip, Smile,
+  Send, Bot, User, AlertTriangle, Sparkles,
+  MoreVertical, Check, X, Paperclip,
 } from "lucide-react";
-import { io, Socket } from "socket.io-client";
 
 interface ChatInterfaceProps {
   conversationId: string;
@@ -25,105 +31,77 @@ interface ChatInterfaceProps {
 export function ChatInterface({ conversationId }: ChatInterfaceProps) {
   const [message, setMessage] = useState("");
   const [isTyping, setIsTyping] = useState(false);
+  const [aiSuggestion, setAiSuggestion] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  const { data: conversation, isLoading: convLoading } = useQuery({
-    queryKey: ["conversation", conversationId],
-    queryFn: () => conversationApi.get(conversationId).then((r) => r.data),
-  });
+  // Live sync — WebSocket invalidates Message/Conversation tags
+  useInboxWebSocket(conversationId);
 
-  const { data: messagesData, isLoading: msgLoading } = useQuery({
-    queryKey: ["messages", conversationId],
-    queryFn: () => conversationApi.messages(conversationId).then((r) => r.data),
-  });
+  const { data: rawConversation, isLoading: convLoading } = useGetConversationQuery(conversationId);
+  const { data: messagesData, isLoading: msgLoading } = useGetMessagesQuery(conversationId);
+  const conversation = rawConversation as any;
 
-  const messages = messagesData?.results || messagesData || [];
+  const messages: any[] = (messagesData as any)?.results || (messagesData as any) || [];
 
   // Scroll to bottom on new messages
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // WebSocket
+  // Listen for typing events dispatched by useInboxWebSocket
   useEffect(() => {
-    const wsUrl = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:8000";
-    const token = localStorage.getItem("access_token");
-    if (!token) return;
-
-    const socket: Socket = io(`${wsUrl}/ws/workspaces`, {
-      query: { token },
-      transports: ["websocket"],
-    });
-
-    socket.on("new_message", (data) => {
-      if (data.conversation_id === conversationId) {
-        queryClient.invalidateQueries({ queryKey: ["messages", conversationId] });
-        queryClient.invalidateQueries({ queryKey: ["conversation", conversationId] });
+    const onTyping = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (detail?.conversation_id === conversationId) {
+        setIsTyping(detail.is_typing);
       }
-    });
-
-    socket.on("typing", (data) => {
-      if (data.conversation_id === conversationId) {
-        setIsTyping(data.is_typing);
-      }
-    });
-
-    return () => {
-      socket.disconnect();
     };
-  }, [conversationId, queryClient]);
+    window.addEventListener("inbox:typing", onTyping);
+    return () => window.removeEventListener("inbox:typing", onTyping);
+  }, [conversationId]);
 
-  const sendMessageMutation = useMutation({
-    mutationFn: (data: { content: string }) =>
-      conversationApi.sendMessage(conversationId, data),
-    onSuccess: () => {
-      setMessage("");
-      queryClient.invalidateQueries({ queryKey: ["messages", conversationId] });
-      queryClient.invalidateQueries({ queryKey: ["conversations"] });
-    },
-    onError: (err: any) => {
-      toast({ type: "error", title: err.response?.data?.error?.message || "Failed to send message" });
-    },
-  });
-
-  const aiSuggestMutation = useMutation({
-    mutationFn: () => conversationApi.aiSuggest(conversationId),
-    onSuccess: (res) => {
-      setMessage(res.data.suggestion || res.data.message || "");
-    },
-    onError: (err: any) => {
-      toast({ type: "error", title: "AI suggestion failed" });
-    },
-  });
-
-  const assignMutation = useMutation({
-    mutationFn: (agentId: string) => conversationApi.assign(conversationId, agentId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["conversation", conversationId] });
-      toast({ type: "success", title: "Conversation assigned" });
-    },
-  });
-
-  const closeMutation = useMutation({
-    mutationFn: () => conversationApi.close(conversationId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["conversation", conversationId] });
-      queryClient.invalidateQueries({ queryKey: ["conversations"] });
-      toast({ type: "success", title: "Conversation closed" });
-    },
-  });
+  const [sendMessage, { isLoading: isSending }] = useSendMessageMutation();
+  const [aiSuggest, { isLoading: aiLoading }] = useAiSuggestMutation();
+  const [closeConversation] = useCloseConversationMutation();
+  const [reopenConversation] = useReopenConversationMutation();
 
   const handleSend = (e: React.FormEvent) => {
     e.preventDefault();
     if (!message.trim()) return;
-    sendMessageMutation.mutate({ content: message });
+    sendMessage({ id: conversationId, body: { content: message } })
+      .unwrap()
+      .then(() => setMessage(""))
+      .catch((err: any) => {
+        toast({ type: "error", title: err?.data?.error?.message || "Failed to send message" });
+      });
   };
 
-  const handleTyping = (value: string) => {
-    setMessage(value);
-    // Could emit typing event here
+  const handleAiSuggest = () => {
+    aiSuggest(conversationId)
+      .unwrap()
+      .then((res: any) => {
+        const sug = res?.suggestion || res?.message || "";
+        setAiSuggestion(sug);
+        setMessage(sug);
+      })
+      .catch(() => {
+        toast({ type: "error", title: "AI suggestion failed" });
+      });
+  };
+
+  const handleClose = () => {
+    closeConversation(conversationId)
+      .unwrap()
+      .then(() => toast({ type: "success", title: "Conversation closed" }))
+      .catch(() => toast({ type: "error", title: "Failed to close" }));
+  };
+
+  const handleReopen = () => {
+    reopenConversation(conversationId)
+      .unwrap()
+      .then(() => toast({ type: "success", title: "Conversation reopened" }))
+      .catch(() => toast({ type: "error", title: "Failed to reopen" }));
   };
 
   if (convLoading) {
@@ -179,8 +157,8 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
               </Button>
             }
             items={[
-              { label: "Close conversation", icon: X, onClick: () => closeMutation.mutate() },
-              { label: "Reopen", icon: Check, onClick: () => conversationApi.reopen(conversationId) },
+              { label: "Close conversation", icon: X, onClick: handleClose },
+              { label: "Reopen", icon: Check, onClick: handleReopen },
             ]}
           />
         </div>
@@ -257,7 +235,7 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
       </div>
 
       {/* AI Suggestion banner */}
-      {aiSuggestMutation.data && (
+      {aiSuggestion && (
         <div className="border-t border-border bg-indigo-500/5 p-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2 text-sm">
@@ -268,7 +246,7 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => setMessage(aiSuggestMutation.data.data?.suggestion || aiSuggestMutation.data.data?.message || "")}
+              onClick={() => setMessage(aiSuggestion)}
             >
               Use
             </Button>
@@ -284,7 +262,7 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
           </Button>
           <Input
             value={message}
-            onChange={(e) => handleTyping(e.target.value)}
+            onChange={(e) => setMessage(e.target.value)}
             placeholder="Type a message..."
             className="flex-1"
           />
@@ -292,13 +270,13 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
             variant="outline"
             size="icon"
             type="button"
-            onClick={() => aiSuggestMutation.mutate()}
-            disabled={aiSuggestMutation.isPending}
+            onClick={handleAiSuggest}
+            disabled={aiLoading}
             title="Get AI suggestion"
           >
             <Sparkles className="h-4 w-4 text-indigo-500" />
           </Button>
-          <Button type="submit" size="icon" disabled={!message.trim() || sendMessageMutation.isPending}>
+          <Button type="submit" size="icon" disabled={!message.trim() || isSending}>
             <Send className="h-4 w-4" />
           </Button>
         </form>

@@ -2,14 +2,15 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { authApi } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Spinner } from "@/components/ui/spinner";
 import { CheckCircle2 } from "lucide-react";
+import { useForgotPasswordMutation } from "@/redux/api/authApi";
 
 export default function ForgotPasswordPage() {
+  const [forgotPassword, { isLoading: isSubmitting }] = useForgotPasswordMutation();
   const [email, setEmail] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [sent, setSent] = useState(false);
@@ -18,7 +19,7 @@ export default function ForgotPasswordPage() {
     e.preventDefault();
     setIsLoading(true);
     try {
-      await authApi.forgotPassword(email);
+      await forgotPassword({ email }).unwrap();
       setSent(true);
     } catch {
       setSent(true); // Don't reveal if email exists

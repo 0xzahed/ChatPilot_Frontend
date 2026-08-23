@@ -3,6 +3,8 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { authApi } from "@/lib/api";
+import { ToastProvider } from "@/components/ui/toast";
+import { ReduxProvider } from "@/redux";
 
 interface User {
   id: string;
@@ -80,12 +82,16 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <AuthContext.Provider
-        value={{ user, isLoading, isAuthenticated: !!user, login, logout, setUser }}
-      >
-        {children}
-      </AuthContext.Provider>
-    </QueryClientProvider>
+    <ReduxProvider>
+      <QueryClientProvider client={queryClient}>
+        <ToastProvider>
+          <AuthContext.Provider
+            value={{ user, isLoading, isAuthenticated: !!user, login, logout, setUser }}
+          >
+            {children}
+          </AuthContext.Provider>
+        </ToastProvider>
+      </QueryClientProvider>
+    </ReduxProvider>
   );
 }
