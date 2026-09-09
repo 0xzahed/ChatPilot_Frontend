@@ -44,8 +44,11 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
       .then((res) => {
         setWorkspaces(res.data);
         const savedId = localStorage.getItem("active_workspace_id");
-        const saved = res.data.find((w: Workspace) => w.id === savedId);
-        setWorkspaceState(saved || res.data[0] || null);
+        const initial = res.data.find((w: Workspace) => w.id === savedId) || res.data[0] || null;
+        setWorkspaceState(initial);
+        if (initial) {
+          localStorage.setItem("active_workspace_id", initial.id);
+        }
       })
       .catch(() => {
         setWorkspaces([]);

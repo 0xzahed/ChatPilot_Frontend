@@ -54,7 +54,7 @@ export const billingApi = createApi({
       providesTags: ["Invoice"],
     }),
     getUsage: builder.query<Usage, string>({
-      query: (workspaceId) => `/billing/${workspaceId}/usage/`,
+      query: (workspaceId) => `/usage/${workspaceId}/`,
       providesTags: (r, e, id) => [{ type: "Usage", id }],
     }),
   }),

@@ -66,7 +66,7 @@ export function ConversationList({ selectedId, onSelect }: ConversationListProps
   return (
     <div className="flex h-full flex-col">
       {/* Search */}
-      <div className="border-b border-border p-3 space-y-2">
+      <div className="border-b border-border p-3 space-y-3">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
@@ -77,7 +77,7 @@ export function ConversationList({ selectedId, onSelect }: ConversationListProps
           />
         </div>
         {/* Channel filter */}
-        <div className="flex gap-1 overflow-x-auto">
+        <div className="flex gap-1.5 overflow-x-auto pb-1">
           {CHANNELS.map((ch) => (
             <button
               key={ch}
@@ -94,7 +94,7 @@ export function ConversationList({ selectedId, onSelect }: ConversationListProps
           ))}
         </div>
         {/* Status filter */}
-        <div className="flex gap-1 overflow-x-auto">
+        <div className="flex gap-1.5 overflow-x-auto pb-1">
           {FILTERS.map((f) => (
             <button
               key={f.id}

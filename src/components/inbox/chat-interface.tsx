@@ -39,7 +39,10 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
   useInboxWebSocket(conversationId);
 
   const { data: rawConversation, isLoading: convLoading } = useGetConversationQuery(conversationId);
-  const { data: messagesData, isLoading: msgLoading } = useGetMessagesQuery(conversationId);
+  const { data: messagesData, isLoading: msgLoading } = useGetMessagesQuery(conversationId, {
+    // Poll every 10s as a backup to WebSocket
+    pollingInterval: 10000,
+  });
   const conversation = rawConversation as any;
 
   const messages: any[] = (messagesData as any)?.results || (messagesData as any) || [];

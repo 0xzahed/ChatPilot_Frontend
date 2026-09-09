@@ -22,8 +22,8 @@ export default function OnboardingPage() {
     e.preventDefault();
     setError("");
     try {
-      const workspace = await createWorkspace({ name, slug }).unwrap();
-      setWorkspace(workspace);
+      const result: any = await createWorkspace({ name, slug }).unwrap();
+      setWorkspace(result.workspace || result);
       router.push("/dashboard");
     } catch (err: any) {
       setError(err.data?.error?.message || err.data?.detail || "Failed to create workspace");

@@ -1,12 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/providers/app-providers";
 import { useWorkspace } from "@/providers/workspace-context";
 import {
-  LayoutDashboard, Inbox, Users, Package, ShoppingCart,
+  LayoutDashboard, Inbox, Users, ShoppingCart,
   AlertTriangle, Zap, BarChart3, Settings, Plug, Tag,
   MessageSquare, ChevronDown, LogOut, User, ShieldCheck,
   CreditCard,
@@ -19,7 +19,6 @@ const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/inbox", label: "Inbox", icon: Inbox },
   { href: "/customers", label: "Customers", icon: Users },
-  { href: "/products", label: "Products", icon: Package },
   { href: "/orders", label: "Orders", icon: ShoppingCart },
   { href: "/complaints", label: "Complaints", icon: AlertTriangle },
   { href: "/automation", label: "Automation", icon: Zap },
@@ -44,6 +43,7 @@ const adminItems = [
 
 export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
+  const router = useRouter();
   const { user, logout } = useAuth();
   const { workspace, workspaces, setWorkspace } = useWorkspace();
 
@@ -169,7 +169,7 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
             </button>
           }
           items={[
-            { label: "Profile", icon: User, onClick: () => window.location.href = "/settings/profile" },
+            { label: "Profile", icon: User, onClick: () => router.push("/settings") },
             { label: "Sign out", icon: LogOut, onClick: logout },
           ]}
         />

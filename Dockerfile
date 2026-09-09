@@ -12,8 +12,8 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
-ARG NEXT_PUBLIC_API_URL=http://localhost:6001
-ARG NEXT_PUBLIC_WS_URL=ws://localhost:6001
+ARG NEXT_PUBLIC_API_URL=https://chatpilot.devtosoft.tech
+ARG NEXT_PUBLIC_WS_URL=wss://chatpilot.devtosoft.tech
 ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
 ENV NEXT_PUBLIC_WS_URL=${NEXT_PUBLIC_WS_URL}
 RUN npm run build

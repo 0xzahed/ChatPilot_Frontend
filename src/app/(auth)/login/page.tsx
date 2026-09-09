@@ -8,13 +8,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Spinner } from "@/components/ui/spinner";
-import { MessageSquare } from "lucide-react";
+import { MessageSquare, Eye, EyeOff } from "lucide-react";
 
 export default function LoginPage() {
   const router = useRouter();
   const { login } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
@@ -62,14 +63,25 @@ export default function LoginPage() {
               Forgot password?
             </Link>
           </div>
-          <Input
-            id="password"
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="••••••••"
-            required
-          />
+          <div className="relative">
+            <Input
+              id="password"
+              type={showPassword ? "text" : "password"}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="••••••••"
+              required
+              className="pr-10"
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              tabIndex={-1}
+            >
+              {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </button>
+          </div>
         </div>
         <Button type="submit" className="w-full" disabled={isLoading}>
           {isLoading ? <Spinner className="h-4 w-4" /> : "Sign In"}
@@ -78,9 +90,7 @@ export default function LoginPage() {
 
       <div className="mt-6 rounded-lg border border-border bg-muted/50 p-4 text-sm">
         <p className="font-medium text-foreground">Demo credentials:</p>
-        <p className="mt-1 text-muted-foreground">owner@demo.com / demo12345</p>
-        <p className="text-muted-foreground">admin@demo.com / demo12345</p>
-        <p className="text-muted-foreground">agent@demo.com / demo12345</p>
+        <p className="mt-1 text-muted-foreground">admin@chatpilot.local / ChatPilot@2026</p>
       </div>
 
       <p className="mt-6 text-center text-sm text-muted-foreground">

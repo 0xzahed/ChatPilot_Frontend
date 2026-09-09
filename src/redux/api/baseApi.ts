@@ -6,6 +6,52 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 // Mutex to prevent multiple simultaneous refresh attempts
 const mutex = new Mutex();
 
+/**
+ * Unwrap standardized API response envelope.
+ * Backend now returns: {success: true, message, data, pagination?}
+ * This transformer unwraps `data` so RTK Query sees the raw payload.
+ * For paginated responses, it returns {results: data, ...pagination} for backward compat.
+ */
+function unwrapResponse(result: any): any {
+  if (!result?.data) return result;
+  const body = result.data;
+  // Standardized envelope: {success, message, data, ...}
+  if (body && typeof body === "object" && "success" in body) {
+    if (body.success === true) {
+      // Paginated response: {success, data: [...], pagination: {...}}
+      if (body.pagination && Array.isArray(body.data)) {
+        result.data = {
+          results: body.data,
+          count: body.pagination.total ?? 0,
+          next: null,
+          previous: null,
+          total_pages: body.pagination.total_pages ?? 0,
+          page: body.pagination.page ?? 1,
+          page_size: body.pagination.limit ?? 20,
+        };
+      } else {
+        // Plain success: unwrap data
+        result.data = body.data ?? body;
+      }
+    } else if (body.success === false) {
+      // Error response: {success: false, message, code}
+      result.error = {
+        status: result.meta?.response?.status ?? 400,
+        data: {
+          success: false,
+          error: {
+            code: body.code ?? "ERROR",
+            message: body.message ?? "Unknown error",
+            details: body.errors ?? body.details ?? null,
+          },
+        },
+      };
+      result.data = undefined;
+    }
+  }
+  return result;
+}
+
 // Custom base query with auth token + refresh-token logic
 const baseQuery: BaseQueryFn<string | FetchArgs, unknown, FetchBaseQueryError> = async (
   args,
@@ -14,7 +60,8 @@ const baseQuery: BaseQueryFn<string | FetchArgs, unknown, FetchBaseQueryError> =
 ) => {
   if (typeof window === "undefined") {
     // SSR — no token available
-    return fetchBaseQuery({ baseUrl: `${API_URL}/api` })(args, api, extraOptions);
+    const r = await fetchBaseQuery({ baseUrl: `${API_URL}/api` })(args, api, extraOptions);
+    return unwrapResponse(r);
   }
 
   const token = localStorage.getItem("access_token");
@@ -41,7 +88,7 @@ const baseQuery: BaseQueryFn<string | FetchArgs, unknown, FetchBaseQueryError> =
       pathname.startsWith("/forgot-password");
 
     if (isAuthPage) {
-      return result;
+      return unwrapResponse(result);
     }
 
     // Try to refresh
@@ -52,7 +99,7 @@ const baseQuery: BaseQueryFn<string | FetchArgs, unknown, FetchBaseQueryError> =
         localStorage.removeItem("access_token");
         localStorage.removeItem("refresh_token");
         window.location.href = "/login";
-        return result;
+        return unwrapResponse(result);
       }
 
       const refreshResult = await fetch(`${API_URL}/api/auth/refresh/`, {
@@ -84,7 +131,7 @@ const baseQuery: BaseQueryFn<string | FetchArgs, unknown, FetchBaseQueryError> =
     }
   }
 
-  return result;
+  return unwrapResponse(result);
 };
 
 export default baseQuery;

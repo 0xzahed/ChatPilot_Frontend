@@ -5,7 +5,6 @@ import { authApi } from "@/redux/api/authApi";
 import { workspaceApi } from "@/redux/api/workspaceApi";
 import { conversationApi } from "@/redux/api/conversationApi";
 import { customerApi } from "@/redux/api/customerApi";
-import { productApi } from "@/redux/api/productApi";
 import { orderApi } from "@/redux/api/orderApi";
 import { complaintApi } from "@/redux/api/complaintApi";
 import { aiApi } from "@/redux/api/aiApi";
@@ -27,7 +26,6 @@ export const store = configureStore({
     [workspaceApi.reducerPath]: workspaceApi.reducer,
     [conversationApi.reducerPath]: conversationApi.reducer,
     [customerApi.reducerPath]: customerApi.reducer,
-    [productApi.reducerPath]: productApi.reducer,
     [orderApi.reducerPath]: orderApi.reducer,
     [complaintApi.reducerPath]: complaintApi.reducer,
     [aiApi.reducerPath]: aiApi.reducer,
@@ -49,7 +47,6 @@ export const store = configureStore({
       workspaceApi.middleware,
       conversationApi.middleware,
       customerApi.middleware,
-      productApi.middleware,
       orderApi.middleware,
       complaintApi.middleware,
       aiApi.middleware,

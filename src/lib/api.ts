@@ -18,9 +18,31 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-// Handle 401 → redirect to login
+// Unwrap standardized API response envelope + handle 401
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    // Unwrap {success: true, data: ...} → res.data = data
+    const body = response.data;
+    if (body && typeof body === "object" && "success" in body) {
+      if (body.success === true) {
+        // Paginated: {success, data: [...], pagination: {...}}
+        if (body.pagination && Array.isArray(body.data)) {
+          response.data = {
+            results: body.data,
+            count: body.pagination.total ?? 0,
+            next: null,
+            previous: null,
+            total_pages: body.pagination.total_pages ?? 0,
+            page: body.pagination.page ?? 1,
+            page_size: body.pagination.limit ?? 20,
+          };
+        } else {
+          response.data = body.data ?? body;
+        }
+      }
+    }
+    return response;
+  },
   (error: AxiosError) => {
     if (error.response?.status === 401 && typeof window !== "undefined") {
       const isAuthPage = window.location.pathname.startsWith("/login") ||
@@ -101,16 +123,6 @@ export const customerApi = {
   timeline: (id: string) => api.get(`/customers/${id}/timeline/`),
 };
 
-// ─── Product API ──────────────────────────────────────────────
-export const productApi = {
-  list: (params?: any) => api.get("/products/", { params }),
-  get: (id: string) => api.get(`/products/${id}/`),
-  create: (data: any) => api.post("/products/", data),
-  update: (id: string, data: any) => api.patch(`/products/${id}/`, data),
-  delete: (id: string) => api.delete(`/products/${id}/`),
-  categories: () => api.get("/products/categories/"),
-};
-
 // ─── Order API ────────────────────────────────────────────────
 export const orderApi = {
   list: (params?: any) => api.get("/orders/", { params }),
@@ -182,7 +194,7 @@ export const billingApi = {
   subscribe: (workspaceId: string, planId: string, billingCycle?: string) =>
     api.post(`/billing/${workspaceId}/subscription/`, { plan_id: planId, billing_cycle: billingCycle }),
   invoices: () => api.get("/billing/invoices/"),
-  usage: (workspaceId: string) => api.get(`/billing/${workspaceId}/usage/`),
+  usage: (workspaceId: string) => api.get(`/usage/${workspaceId}/`),
 };
 
 // ─── Usage API ────────────────────────────────────────────────

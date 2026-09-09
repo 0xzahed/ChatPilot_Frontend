@@ -38,7 +38,7 @@ export const workspaceApi = createApi({
       query: (id) => `/workspaces/${id}/`,
       providesTags: (r, e, id) => [{ type: "Workspace", id }],
     }),
-    createWorkspace: builder.mutation<Workspace, { name: string; slug: string }>({
+    createWorkspace: builder.mutation<{ workspace: Workspace; membership: any } | Workspace, { name: string; slug: string }>({
       query: (body) => ({ url: "/workspaces/", method: "POST", body }),
       invalidatesTags: ["Workspace"],
     }),

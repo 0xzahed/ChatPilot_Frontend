@@ -16,7 +16,7 @@ function InboxContent() {
   const [showDetails, setShowDetails] = useState(true);
 
   return (
-    <div className="flex h-full">
+    <div className="flex h-full overflow-hidden">
       {/* Column 1: Conversation list */}
       <div className="w-80 shrink-0 border-r border-border bg-card lg:w-96">
         <ConversationList selectedId={selectedId} onSelect={setSelectedId} />

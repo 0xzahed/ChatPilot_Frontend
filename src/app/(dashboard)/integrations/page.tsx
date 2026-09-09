@@ -20,6 +20,7 @@ import {
   useDisconnectIntegrationMutation,
   useSyncIntegrationMutation,
   useSetupWhatsAppMutation,
+  useSelectPagesMutation,
   useGetWebhookEventsQuery,
 } from "@/redux/api/integrationApi";
 import {
@@ -90,7 +91,7 @@ const INTEGRATIONS: IntegrationDef[] = [
 
 export default function IntegrationsPage() {
   return (
-    <Suspense fallback={<div className="p-6"><Spinner className="h-6 w-6" /></div>}>
+    <Suspense fallback={<div><Spinner className="h-6 w-6" /></div>}>
       <IntegrationsContent />
     </Suspense>
   );
@@ -119,6 +120,14 @@ function IntegrationsContent() {
   const [setupWhatsApp, { isLoading: isSettingUpWhatsApp }] = useSetupWhatsAppMutation();
   const [whatsappModalOpen, setWhatsappModalOpen] = useState(false);
   const [whatsappForm, setWhatsappForm] = useState({ accessToken: "", phoneNumberId: "" });
+
+  // Facebook multi-page selection state
+  const [pageSelectModalOpen, setPageSelectModalOpen] = useState(false);
+  const [availablePages, setAvailablePages] = useState<any[]>([]);
+  const [selectedPageIds, setSelectedPageIds] = useState<string[]>([]);
+  const [pendingIntegrationId, setPendingIntegrationId] = useState<string>("");
+
+  const [selectPages, { isLoading: isSelectingPages }] = useSelectPagesMutation();
 
   const connectMutation = {
     isPending: isConnecting,
@@ -191,6 +200,41 @@ function IntegrationsContent() {
     }
   };
 
+  // Toggle page selection
+  const togglePage = (pageId: string) => {
+    setSelectedPageIds((prev) =>
+      prev.includes(pageId) ? prev.filter((id) => id !== pageId) : [...prev, pageId]
+    );
+  };
+
+  // Submit selected Facebook pages
+  const handlePageSelectSubmit = () => {
+    if (selectedPageIds.length === 0) {
+      toast({ type: "error", title: "No pages selected", description: "Select at least one page to connect." });
+      return;
+    }
+    selectPages({ integrationId: pendingIntegrationId, pageIds: selectedPageIds })
+      .unwrap()
+      .then(() => {
+        toast({
+          type: "success",
+          title: "Pages connected",
+          description: `${selectedPageIds.length} Facebook ${selectedPageIds.length === 1 ? "page" : "pages"} connected.`,
+        });
+        setPageSelectModalOpen(false);
+        setAvailablePages([]);
+        setSelectedPageIds([]);
+        setPendingIntegrationId("");
+      })
+      .catch((err: any) => {
+        toast({
+          type: "error",
+          title: "Connection failed",
+          description: err?.data?.error || "Could not connect the selected pages.",
+        });
+      });
+  };
+
   // Handle OAuth callback redirect from backend
   useEffect(() => {
     const callbackType = searchParams.get("callback");
@@ -207,9 +251,18 @@ function IntegrationsContent() {
     if (callbackType && code && state) {
       completeIntegration({ type: callbackType, code, state })
         .unwrap()
-        .then(() => {
-          toast({ type: "success", title: "Integration connected", description: "Your channel is now connected." });
-          router.replace("/integrations");
+        .then((res: any) => {
+          // Facebook multi-page flow: show page selection dialog
+          if (res?.requires_page_selection && res?.available_pages) {
+            setAvailablePages(res.available_pages);
+            setSelectedPageIds(res.available_pages.map((p: any) => p.page_id));
+            setPendingIntegrationId(res.integration_id);
+            setPageSelectModalOpen(true);
+            router.replace("/integrations");
+          } else {
+            toast({ type: "success", title: "Integration connected", description: "Your channel is now connected." });
+            router.replace("/integrations");
+          }
         })
         .catch((err: any) => {
           toast({
@@ -251,7 +304,7 @@ function IntegrationsContent() {
             ))
           : INTEGRATIONS.map((def) => {
               const existing = findByType(def.type);
-              const connected = existing?.status === "connected" || existing?.is_active;
+              const connected = existing?.status === "connected";
               const Icon = def.icon;
               return (
                 <Card key={def.type}>
@@ -267,6 +320,12 @@ function IntegrationsContent() {
                     <div>
                       <h3 className="font-semibold">{def.name}</h3>
                       <p className="mt-1 text-sm text-muted-foreground">{def.description}</p>
+                      {connected && existing?.config?.connected_pages?.length > 0 && (
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {existing.config.connected_pages.length} {existing.config.connected_pages.length === 1 ? "page" : "pages"}:{" "}
+                          {existing.config.connected_pages.map((p: any) => p.page_name).join(", ")}
+                        </p>
+                      )}
                     </div>
                     <div className="flex gap-2">
                       {connected ? (
@@ -348,6 +407,49 @@ function IntegrationsContent() {
             <Button variant="outline" onClick={() => setWhatsappModalOpen(false)}>Cancel</Button>
             <Button onClick={handleWhatsAppSubmit} disabled={isSettingUpWhatsApp}>
               {isSettingUpWhatsApp ? <Spinner size="sm" className="h-4 w-4" /> : "Connect"}
+            </Button>
+          </div>
+        </div>
+      </Dialog>
+
+      {/* Facebook page selection modal */}
+      <Dialog
+        open={pageSelectModalOpen}
+        onClose={() => setPageSelectModalOpen(false)}
+        title="Select Facebook Pages"
+        description="Choose which Facebook Pages to connect. You can connect multiple pages at once."
+      >
+        <div className="space-y-4">
+          {availablePages.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No pages available. Make sure your Facebook account manages at least one Page.</p>
+          ) : (
+            <div className="space-y-2 max-h-72 overflow-y-auto">
+              {availablePages.map((page) => (
+                <label
+                  key={page.page_id}
+                  className="flex items-center gap-3 p-3 rounded-lg border cursor-pointer hover:bg-muted/50 transition-colors"
+                >
+                  <input
+                    type="checkbox"
+                    checked={selectedPageIds.includes(page.page_id)}
+                    onChange={() => togglePage(page.page_id)}
+                    className="h-4 w-4 rounded border-gray-300"
+                  />
+                  <div className="flex-1">
+                    <p className="text-sm font-medium">{page.page_name}</p>
+                    <p className="text-xs text-muted-foreground">Page ID: {page.page_id}</p>
+                  </div>
+                </label>
+              ))}
+            </div>
+          )}
+          <p className="text-xs text-muted-foreground">
+            {selectedPageIds.length} {selectedPageIds.length === 1 ? "page" : "pages"} selected
+          </p>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setPageSelectModalOpen(false)}>Cancel</Button>
+            <Button onClick={handlePageSelectSubmit} disabled={isSelectingPages || selectedPageIds.length === 0}>
+              {isSelectingPages ? <Spinner size="sm" className="h-4 w-4" /> : `Connect ${selectedPageIds.length} ${selectedPageIds.length === 1 ? "Page" : "Pages"}`}
             </Button>
           </div>
         </div>

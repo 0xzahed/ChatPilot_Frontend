@@ -79,7 +79,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   return (
     <div className="flex h-screen overflow-hidden">
       {/* Desktop sidebar */}
-      <aside className="hidden w-64 shrink-0 lg:block">
+      <aside className="hidden w-64 shrink-0 border-r border-border lg:block">
         <Sidebar />
       </aside>
 
@@ -107,9 +107,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       )}
 
       {/* Main content */}
-      <div className="flex flex-1 flex-col overflow-hidden">
+      <div className="flex flex-1 flex-col min-h-0 overflow-hidden">
         <Topbar onMenuClick={openSidebar} />
-        <main className="flex-1 overflow-y-auto bg-background">{children}</main>
+        <main className="flex-1 min-h-0 overflow-y-auto bg-background">{children}</main>
       </div>
     </div>
   );

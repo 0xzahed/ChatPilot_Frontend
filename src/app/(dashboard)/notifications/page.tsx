@@ -19,9 +19,14 @@ import {
 } from "lucide-react";
 
 const ICON_BY_TYPE: Record<string, React.ComponentType<{ className?: string }>> = {
-  message: MessageSquare,
-  order: ShoppingCart,
+  new_message: MessageSquare,
+  conversation_assigned: UserPlus,
   complaint: AlertTriangle,
+  order: ShoppingCart,
+  integration_failed: AlertTriangle,
+  ai_escalation: AlertTriangle,
+  system: Info,
+  message: MessageSquare,
   team: UserPlus,
   info: Info,
 };
@@ -86,7 +91,7 @@ export default function NotificationsPage() {
       ) : (
         <div className="space-y-3">
           {notifications.map((n: any) => {
-            const Icon = ICON_BY_TYPE[n.type] || Bell;
+            const Icon = ICON_BY_TYPE[n.notification_type || n.type] || Bell;
             return (
               <Card
                 key={n.id}

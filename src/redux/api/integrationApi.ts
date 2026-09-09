@@ -68,6 +68,14 @@ export const integrationApi = createApi({
       }),
       invalidatesTags: ["Integration"],
     }),
+    selectPages: builder.mutation<any, { integrationId: string; pageIds: string[] }>({
+      query: ({ integrationId, pageIds }) => ({
+        url: `/integrations/${integrationId}/select-pages/`,
+        method: "POST",
+        body: { page_ids: pageIds },
+      }),
+      invalidatesTags: ["Integration"],
+    }),
     getWebhookEvents: builder.query<WebhookEvent[] | { results: WebhookEvent[] }, any>({
       query: (params) => ({ url: "/integrations/webhooks/", method: "GET", params }),
       providesTags: ["WebhookEvent"],
@@ -91,6 +99,7 @@ export const {
   useDisconnectIntegrationMutation,
   useSyncIntegrationMutation,
   useSetupWhatsAppMutation,
+  useSelectPagesMutation,
   useGetWebhookEventsQuery,
   useReplayWebhookMutation,
   useGetSyncLogsQuery,
