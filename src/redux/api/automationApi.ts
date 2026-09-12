@@ -1,19 +1,6 @@
 import { createApi } from "@reduxjs/toolkit/query/react";
 import baseApi from "./baseApi";
-
-export interface AutomationRule {
-  id: string;
-  name?: string;
-  trigger?: string;
-  action?: string;
-  is_active?: boolean;
-  [key: string]: any;
-}
-
-export interface CommentAutomation {
-  id: string;
-  [key: string]: any;
-}
+import type { AutomationRule, CommentAutomation } from "@/types/api";
 
 export const automationApi = createApi({
   reducerPath: "automationApi",
@@ -24,11 +11,11 @@ export const automationApi = createApi({
       query: () => "/automation/rules/",
       providesTags: ["AutomationRule"],
     }),
-    createRule: builder.mutation<AutomationRule, any>({
+    createRule: builder.mutation<AutomationRule, Record<string, unknown>>({
       query: (body) => ({ url: "/automation/rules/", method: "POST", body }),
       invalidatesTags: ["AutomationRule"],
     }),
-    updateRule: builder.mutation<AutomationRule, { id: string; data: any }>({
+    updateRule: builder.mutation<AutomationRule, { id: string; data: Record<string, unknown> }>({
       query: ({ id, data }) => ({ url: `/automation/rules/${id}/`, method: "PATCH", body: data }),
       invalidatesTags: ["AutomationRule"],
     }),

@@ -1,22 +1,6 @@
 import { createApi } from "@reduxjs/toolkit/query/react";
 import baseApi from "./baseApi";
-
-export interface AISettings {
-  [key: string]: any;
-}
-
-export interface AIInstructions {
-  [key: string]: any;
-}
-
-export interface AIEvent {
-  id: string;
-  [key: string]: any;
-}
-
-export interface AIUsage {
-  [key: string]: any;
-}
+import type { AISettings, AIInstructions, AIEvent, AIUsage } from "@/types/api";
 
 export const aiApi = createApi({
   reducerPath: "aiApi",
@@ -27,7 +11,7 @@ export const aiApi = createApi({
       query: (workspaceId) => `/ai/${workspaceId}/settings/`,
       providesTags: (r, e, id) => [{ type: "AISettings", id }],
     }),
-    updateAISettings: builder.mutation<AISettings, { workspaceId: string; data: any }>({
+    updateAISettings: builder.mutation<AISettings, { workspaceId: string; data: Record<string, unknown> }>({
       query: ({ workspaceId, data }) => ({ url: `/ai/${workspaceId}/settings/`, method: "PATCH", body: data }),
       invalidatesTags: (r, e, { workspaceId }) => [{ type: "AISettings", id: workspaceId }],
     }),
@@ -35,7 +19,7 @@ export const aiApi = createApi({
       query: (workspaceId) => `/ai/${workspaceId}/instructions/`,
       providesTags: (r, e, id) => [{ type: "AIInstructions", id }],
     }),
-    updateAIInstructions: builder.mutation<AIInstructions, { workspaceId: string; data: any }>({
+    updateAIInstructions: builder.mutation<AIInstructions, { workspaceId: string; data: Record<string, unknown> }>({
       query: ({ workspaceId, data }) => ({ url: `/ai/${workspaceId}/instructions/`, method: "PATCH", body: data }),
       invalidatesTags: (r, e, { workspaceId }) => [{ type: "AIInstructions", id: workspaceId }],
     }),
@@ -47,7 +31,7 @@ export const aiApi = createApi({
       query: (workspaceId) => `/ai/${workspaceId}/usage/`,
       providesTags: (r, e, id) => [{ type: "AIUsage", id }],
     }),
-    testAI: builder.mutation<any, { workspaceId: string; message: string }>({
+    testAI: builder.mutation<{ response?: string; suggestion?: string } & Record<string, unknown>, { workspaceId: string; message: string }>({
       query: ({ workspaceId, message }) => ({
         url: `/ai/${workspaceId}/test/`,
         method: "POST",

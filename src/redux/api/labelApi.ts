@@ -1,12 +1,6 @@
 import { createApi } from "@reduxjs/toolkit/query/react";
 import baseApi from "./baseApi";
-
-export interface Label {
-  id: string;
-  name: string;
-  color: string;
-  [key: string]: any;
-}
+import type { Label } from "@/types/api";
 
 export const labelApi = createApi({
   reducerPath: "labelApi",
@@ -17,11 +11,11 @@ export const labelApi = createApi({
       query: () => ({ url: "/conversations/labels/", method: "GET" }),
       providesTags: ["Label"],
     }),
-    createLabel: builder.mutation<Label, any>({
+    createLabel: builder.mutation<Label, Record<string, unknown>>({
       query: (body) => ({ url: "/conversations/labels/", method: "POST", body }),
       invalidatesTags: ["Label"],
     }),
-    updateLabel: builder.mutation<Label, { id: string; data: any }>({
+    updateLabel: builder.mutation<Label, { id: string; data: Record<string, unknown> }>({
       query: ({ id, data }) => ({ url: `/conversations/labels/${id}/`, method: "PATCH", body: data }),
       invalidatesTags: (r, e, { id }) => [{ type: "Label", id }],
     }),

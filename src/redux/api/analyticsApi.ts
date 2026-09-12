@@ -1,34 +1,6 @@
 import { createApi } from "@reduxjs/toolkit/query/react";
 import baseApi from "./baseApi";
-
-export interface DashboardStats {
-  total_conversations?: number;
-  open_conversations?: number;
-  unread_messages?: number;
-  total_customers?: number;
-  total_orders?: number;
-  revenue?: number;
-  ai_handled?: number;
-  human_handled?: number;
-  ai_automation_rate?: number;
-  conversion_rate?: number;
-  avg_response_time_seconds?: number;
-  total_complaints?: number;
-  open_complaints?: number;
-  messages_used?: number;
-  message_limit?: number;
-  messages_remaining?: number;
-  [key: string]: any;
-}
-
-export interface ChartData {
-  conversations_over_time?: any[];
-  orders_over_time?: any[];
-  channel_performance?: any[];
-  conversion_funnel?: any[];
-  revenue_over_time?: any[];
-  [key: string]: any;
-}
+import type { DashboardStats, ChartData } from "@/types/api";
 
 export const analyticsApi = createApi({
   reducerPath: "analyticsApi",

@@ -1,23 +1,6 @@
 import { createApi } from "@reduxjs/toolkit/query/react";
 import baseApi from "./baseApi";
-
-export interface Integration {
-  id: string;
-  type: string;
-  status?: string;
-  connected?: boolean;
-  [key: string]: any;
-}
-
-export interface WebhookEvent {
-  id: string;
-  [key: string]: any;
-}
-
-export interface SyncLog {
-  id: string;
-  [key: string]: any;
-}
+import type { Integration, WebhookEvent, SyncLog } from "@/types/api";
 
 export const integrationApi = createApi({
   reducerPath: "integrationApi",
@@ -28,7 +11,7 @@ export const integrationApi = createApi({
       query: () => "/integrations/",
       providesTags: ["Integration"],
     }),
-    connectIntegration: builder.mutation<any, { type: string; workspaceId: string }>({
+    connectIntegration: builder.mutation<{ requires_manual_setup?: boolean; auth_url?: string } & Record<string, unknown>, { type: string; workspaceId: string }>({
       query: ({ type, workspaceId }) => ({
         url: `/integrations/connect/${type}/`,
         method: "GET",
@@ -36,7 +19,7 @@ export const integrationApi = createApi({
       }),
       invalidatesTags: ["Integration"],
     }),
-    callbackIntegration: builder.mutation<any, { type: string; code: string; state: string }>({
+    callbackIntegration: builder.mutation<Record<string, unknown>, { type: string; code: string; state: string }>({
       query: ({ type, code, state }) => ({
         url: `/integrations/callback/${type}/`,
         method: "GET",
@@ -44,7 +27,7 @@ export const integrationApi = createApi({
       }),
       invalidatesTags: ["Integration"],
     }),
-    completeIntegration: builder.mutation<any, { type: string; code: string; state: string }>({
+    completeIntegration: builder.mutation<Record<string, unknown>, { type: string; code: string; state: string }>({
       query: ({ type, code, state }) => ({
         url: `/integrations/complete/${type}/`,
         method: "POST",
@@ -60,7 +43,7 @@ export const integrationApi = createApi({
       query: (id) => ({ url: `/integrations/${id}/sync/`, method: "POST" }),
       invalidatesTags: ["Integration"],
     }),
-    setupWhatsApp: builder.mutation<any, { workspaceId: string; accessToken: string; phoneNumberId: string }>({
+    setupWhatsApp: builder.mutation<Record<string, unknown>, { workspaceId: string; accessToken: string; phoneNumberId: string }>({
       query: ({ workspaceId, accessToken, phoneNumberId }) => ({
         url: "/integrations/whatsapp/setup/",
         method: "POST",
@@ -68,7 +51,7 @@ export const integrationApi = createApi({
       }),
       invalidatesTags: ["Integration"],
     }),
-    selectPages: builder.mutation<any, { integrationId: string; pageIds: string[] }>({
+    selectPages: builder.mutation<Record<string, unknown>, { integrationId: string; pageIds: string[] }>({
       query: ({ integrationId, pageIds }) => ({
         url: `/integrations/${integrationId}/select-pages/`,
         method: "POST",
@@ -76,8 +59,8 @@ export const integrationApi = createApi({
       }),
       invalidatesTags: ["Integration"],
     }),
-    getWebhookEvents: builder.query<WebhookEvent[] | { results: WebhookEvent[] }, any>({
-      query: (params) => ({ url: "/integrations/webhooks/", method: "GET", params }),
+    getWebhookEvents: builder.query<WebhookEvent[] | { results: WebhookEvent[] }, Record<string, unknown> | void>({
+      query: (params) => ({ url: "/integrations/webhooks/", method: "GET", params: params || undefined }),
       providesTags: ["WebhookEvent"],
     }),
     replayWebhook: builder.mutation<void, string>({

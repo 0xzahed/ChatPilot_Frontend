@@ -1,27 +1,13 @@
 import { createApi } from "@reduxjs/toolkit/query/react";
 import baseApi from "./baseApi";
-
-export interface Customer {
-  id: string;
-  name: string;
-  email?: string;
-  phone?: string;
-  channel?: string;
-  avatar?: string | null;
-  language?: string;
-  notes?: string;
-  total_orders?: number;
-  total_spent?: number;
-  created_at?: string;
-  [key: string]: any;
-}
+import type { Customer, CustomerTimelineEvent } from "@/types/api";
 
 export const customerApi = createApi({
   reducerPath: "customerApi",
   baseQuery: baseApi,
   tagTypes: ["Customer"],
   endpoints: (builder) => ({
-    getCustomers: builder.query<{ results: Customer[]; count: number; next: string | null; previous: string | null } | Customer[], any>({
+    getCustomers: builder.query<{ results: Customer[]; count: number; next: string | null; previous: string | null } | Customer[], Record<string, unknown>>({
       query: (params) => ({ url: "/customers/", method: "GET", params }),
       providesTags: ["Customer"],
     }),
@@ -29,11 +15,11 @@ export const customerApi = createApi({
       query: (id) => `/customers/${id}/`,
       providesTags: (r, e, id) => [{ type: "Customer", id }],
     }),
-    createCustomer: builder.mutation<Customer, any>({
+    createCustomer: builder.mutation<Customer, Record<string, unknown>>({
       query: (body) => ({ url: "/customers/", method: "POST", body }),
       invalidatesTags: ["Customer"],
     }),
-    updateCustomer: builder.mutation<Customer, { id: string; data: any }>({
+    updateCustomer: builder.mutation<Customer, { id: string; data: Record<string, unknown> }>({
       query: ({ id, data }) => ({ url: `/customers/${id}/`, method: "PATCH", body: data }),
       invalidatesTags: (r, e, { id }) => [{ type: "Customer", id }],
     }),
@@ -41,7 +27,7 @@ export const customerApi = createApi({
       query: (id) => ({ url: `/customers/${id}/`, method: "DELETE" }),
       invalidatesTags: ["Customer"],
     }),
-    getCustomerTimeline: builder.query<any[], string>({
+    getCustomerTimeline: builder.query<CustomerTimelineEvent[], string>({
       query: (id) => `/customers/${id}/timeline/`,
       providesTags: (r, e, id) => [{ type: "Customer", id: `TIMELINE-${id}` }],
     }),

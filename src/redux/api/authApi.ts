@@ -1,36 +1,6 @@
 import { createApi } from "@reduxjs/toolkit/query/react";
 import baseApi from "./baseApi";
-
-export interface User {
-  id: string;
-  email: string;
-  username: string;
-  first_name: string;
-  last_name: string;
-  is_platform_admin: boolean;
-  is_staff?: boolean;
-  is_active?: boolean;
-  phone?: string;
-}
-
-export interface LoginRequest {
-  email: string;
-  password: string;
-}
-
-export interface LoginResponse {
-  access: string;
-  refresh: string;
-}
-
-export interface RegisterRequest {
-  email: string;
-  username: string;
-  first_name?: string;
-  last_name?: string;
-  password: string;
-  password_confirm: string;
-}
+import type { User, LoginRequest, LoginResponse, RegisterRequest, Session } from "@/types/api";
 
 export const authApi = createApi({
   reducerPath: "authApi",
@@ -59,7 +29,7 @@ export const authApi = createApi({
     resetPassword: builder.mutation<void, { token: string; new_password: string }>({
       query: (body) => ({ url: "/auth/reset-password/", method: "POST", body }),
     }),
-    getSessions: builder.query<any[], void>({
+    getSessions: builder.query<Session[], void>({
       query: () => "/auth/sessions/",
       providesTags: ["Session"],
     }),

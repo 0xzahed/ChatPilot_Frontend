@@ -12,6 +12,7 @@ const mutex = new Mutex();
  * This transformer unwraps `data` so RTK Query sees the raw payload.
  * For paginated responses, it returns {results: data, ...pagination} for backward compat.
  */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 function unwrapResponse(result: any): any {
   if (!result?.data) return result;
   const body = result.data;

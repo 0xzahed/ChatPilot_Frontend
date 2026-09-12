@@ -72,7 +72,7 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
   const handleSend = (e: React.FormEvent) => {
     e.preventDefault();
     if (!message.trim()) return;
-    sendMessage({ id: conversationId, body: { content: message } })
+    sendMessage({ id: conversationId, content: message })
       .unwrap()
       .then(() => setMessage(""))
       .catch((err: any) => {

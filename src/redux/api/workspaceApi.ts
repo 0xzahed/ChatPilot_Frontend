@@ -1,29 +1,6 @@
 import { createApi } from "@reduxjs/toolkit/query/react";
 import baseApi from "./baseApi";
-
-export interface Workspace {
-  id: string;
-  name: string;
-  slug: string;
-  logo?: string | null;
-  owner?: string;
-  is_active?: boolean;
-  is_suspended?: boolean;
-  created_at?: string;
-  updated_at?: string;
-}
-
-export interface WorkspaceMember {
-  id: string;
-  user: string;
-  email: string;
-  role: string;
-  joined_at: string;
-}
-
-export interface WorkspaceSettings {
-  [key: string]: any;
-}
+import type { Workspace, WorkspaceMember, WorkspaceSettings } from "@/types/api";
 
 export const workspaceApi = createApi({
   reducerPath: "workspaceApi",
@@ -38,7 +15,7 @@ export const workspaceApi = createApi({
       query: (id) => `/workspaces/${id}/`,
       providesTags: (r, e, id) => [{ type: "Workspace", id }],
     }),
-    createWorkspace: builder.mutation<{ workspace: Workspace; membership: any } | Workspace, { name: string; slug: string }>({
+    createWorkspace: builder.mutation<{ workspace: Workspace; membership: unknown } | Workspace, { name: string; slug: string }>({
       query: (body) => ({ url: "/workspaces/", method: "POST", body }),
       invalidatesTags: ["Workspace"],
     }),
@@ -50,7 +27,7 @@ export const workspaceApi = createApi({
       query: (id) => `/workspaces/${id}/settings/`,
       providesTags: (r, e, id) => [{ type: "WorkspaceSettings", id }],
     }),
-    updateWorkspaceSettings: builder.mutation<WorkspaceSettings, { id: string; data: any }>({
+    updateWorkspaceSettings: builder.mutation<WorkspaceSettings, { id: string; data: Record<string, unknown> }>({
       query: ({ id, data }) => ({ url: `/workspaces/${id}/settings/`, method: "PATCH", body: data }),
       invalidatesTags: (r, e, { id }) => [{ type: "WorkspaceSettings", id }],
     }),

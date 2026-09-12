@@ -6,10 +6,10 @@ import { MessageSquare, RefreshCw, Home, AlertTriangle } from "lucide-react";
 
 export default function Error({
   error,
-  reset,
+  retry,
 }: {
   error: Error & { digest?: string };
-  reset: () => void;
+  retry: () => void;
 }) {
   useEffect(() => {
     console.error(error);
@@ -61,7 +61,7 @@ export default function Error({
         {/* Action buttons */}
         <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row">
           <button
-            onClick={reset}
+            onClick={retry}
             className="inline-flex items-center gap-2 rounded-lg bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground shadow-lg shadow-primary/25 transition-all hover:bg-primary/90 active:scale-95"
           >
             <RefreshCw className="h-4 w-4" />

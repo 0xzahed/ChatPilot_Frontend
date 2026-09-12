@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import {
   useGetConversationsQuery,
+  useGetFacebookPagesQuery,
 } from "@/redux/api/conversationApi";
 import { useInboxWebSocket } from "@/hooks/useInboxWebSocket";
 import { cn, timeAgo, getInitials } from "@/lib/utils";
@@ -12,6 +13,15 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Search, Bot, AlertTriangle, ShoppingCart } from "lucide-react";
+
+// Facebook icon (not available in this lucide version)
+function FacebookIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden="true">
+      <path d="M22 12.06C22 6.5 17.52 2 12 2S2 6.5 2 12.06c0 5.02 3.66 9.18 8.44 9.94v-7.03H7.9v-2.9h2.54V9.85c0-2.52 1.49-3.91 3.78-3.91 1.1 0 2.24.2 2.24.2v2.47h-1.26c-1.24 0-1.63.78-1.63 1.57v1.88h2.78l-.44 2.9h-2.34V22c4.78-.76 8.43-4.92 8.43-9.94Z" />
+    </svg>
+  );
+}
 
 interface ConversationListProps {
   selectedId: string | null;
@@ -34,6 +44,11 @@ export function ConversationList({ selectedId, onSelect }: ConversationListProps
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("all");
   const [channel, setChannel] = useState("all");
+  const [selectedPageId, setSelectedPageId] = useState<string>("all");
+
+  // Fetch connected Facebook pages for the page filter dropdown
+  const { data: fbPagesData } = useGetFacebookPagesQuery();
+  const fbPages: { page_id: string; page_name: string }[] = (fbPagesData as any) || [];
 
   // Live sync via WebSocket — invalidates Conversation tags on new_message
   useInboxWebSocket(selectedId || undefined);
@@ -47,6 +62,7 @@ export function ConversationList({ selectedId, onSelect }: ConversationListProps
   if (filter === "is_complaint") params.is_complaint = "true";
   if (filter === "has_order") params.has_order = "true";
   if (channel !== "all") params.channel = channel;
+  if (selectedPageId !== "all") params.page_id = selectedPageId;
 
   const { data: rawData, isLoading, refetch } = useGetConversationsQuery(params, {
     // Poll every 15s as a backup to WebSocket
@@ -93,6 +109,37 @@ export function ConversationList({ selectedId, onSelect }: ConversationListProps
             </button>
           ))}
         </div>
+        {/* Facebook Page filter — only show when there are connected pages */}
+        {fbPages.length > 0 && (
+          <div className="flex gap-1.5 overflow-x-auto pb-1">
+            <button
+              onClick={() => setSelectedPageId("all")}
+              className={cn(
+                "shrink-0 rounded-full px-3 py-1 text-xs font-medium",
+                selectedPageId === "all"
+                  ? "bg-secondary text-secondary-foreground"
+                  : "text-muted-foreground hover:bg-muted"
+              )}
+            >
+              All Pages
+            </button>
+            {fbPages.map((page) => (
+              <button
+                key={page.page_id}
+                onClick={() => setSelectedPageId(page.page_id)}
+                className={cn(
+                  "shrink-0 rounded-full px-3 py-1 text-xs font-medium flex items-center gap-1",
+                  selectedPageId === page.page_id
+                    ? "bg-secondary text-secondary-foreground"
+                    : "text-muted-foreground hover:bg-muted"
+                )}
+              >
+                <FacebookIcon className="h-3 w-3" />
+                {page.page_name}
+              </button>
+            ))}
+          </div>
+        )}
         {/* Status filter */}
         <div className="flex gap-1.5 overflow-x-auto pb-1">
           {FILTERS.map((f) => (
@@ -166,6 +213,11 @@ export function ConversationList({ selectedId, onSelect }: ConversationListProps
                   {conv.last_message_preview || conv.last_message || "No messages yet"}
                 </p>
                 <div className="mt-1 flex items-center gap-1.5 flex-wrap">
+                  {conv.page_name && (
+                    <Badge variant="secondary" className="text-[10px] py-0">
+                      <FacebookIcon className="h-2.5 w-2.5 mr-0.5" /> {conv.page_name}
+                    </Badge>
+                  )}
                   {conv.handled_by === "ai" && (
                     <Badge variant="secondary" className="text-[10px] py-0">
                       <Bot className="h-2.5 w-2.5 mr-0.5" /> AI

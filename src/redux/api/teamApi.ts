@@ -1,16 +1,6 @@
 import { createApi } from "@reduxjs/toolkit/query/react";
 import baseApi from "./baseApi";
-
-export interface TeamMember {
-  id: string;
-  email: string;
-  first_name?: string;
-  last_name?: string;
-  role: string;
-  status?: string;
-  joined_at?: string;
-  [key: string]: any;
-}
+import type { TeamMember } from "@/types/api";
 
 export const teamApi = createApi({
   reducerPath: "teamApi",
@@ -21,7 +11,7 @@ export const teamApi = createApi({
       query: () => "/team/",
       providesTags: ["Team"],
     }),
-    inviteMember: builder.mutation<any, { email: string; role: string; workspaceId: string }>({
+    inviteMember: builder.mutation<Record<string, unknown>, { email: string; role: string; workspaceId: string }>({
       query: ({ email, role, workspaceId }) => ({
         url: "/team/invite/",
         method: "POST",
@@ -29,7 +19,7 @@ export const teamApi = createApi({
       }),
       invalidatesTags: ["Team"],
     }),
-    updateMember: builder.mutation<any, { id: string; role: string }>({
+    updateMember: builder.mutation<Record<string, unknown>, { id: string; role: string }>({
       query: ({ id, role }) => ({ url: `/team/${id}/`, method: "PATCH", body: { role } }),
       invalidatesTags: ["Team"],
     }),

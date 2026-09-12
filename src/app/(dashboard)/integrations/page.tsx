@@ -112,9 +112,6 @@ function IntegrationsContent() {
   const integrations: any[] = data?.results || data || [];
   const webhookEvents: any[] = webhookData?.results || webhookData || [];
 
-  const findByType = (type: string) =>
-    integrations.find((i) => i.integration_type === type);
-
   const [connectIntegration, { isLoading: isConnecting }] = useConnectIntegrationMutation();
   const [completeIntegration] = useCompleteIntegrationMutation();
   const [setupWhatsApp, { isLoading: isSettingUpWhatsApp }] = useSetupWhatsAppMutation();
@@ -302,57 +299,89 @@ function IntegrationsContent() {
                 </CardContent>
               </Card>
             ))
-          : INTEGRATIONS.map((def) => {
-              const existing = findByType(def.type);
-              const connected = existing?.status === "connected";
+          : INTEGRATIONS.flatMap((def) => {
               const Icon = def.icon;
-              return (
-                <Card key={def.type}>
-                  <CardContent className="p-5 space-y-4">
-                    <div className="flex items-start justify-between">
-                      <div className={`flex h-10 w-10 items-center justify-center rounded-lg bg-muted ${def.color}`}>
-                        <Icon className="h-5 w-5" />
+              // Find ALL integrations of this type (supports multiple accounts)
+              const allOfThisType = (data?.results || data || []).filter(
+                (i: any) => i.integration_type === def.type
+              );
+              const connectedOnes = allOfThisType.filter((i: any) => i.status === "connected");
+
+              // Render one card per connected integration + one "Add" card
+              const cards: React.ReactElement[] = [];
+
+              // Connected integrations
+              for (const existing of connectedOnes) {
+                cards.push(
+                  <Card key={existing.id}>
+                    <CardContent className="p-5 space-y-4">
+                      <div className="flex items-start justify-between">
+                        <div className={`flex h-10 w-10 items-center justify-center rounded-lg bg-muted ${def.color}`}>
+                          <Icon className="h-5 w-5" />
+                        </div>
+                        <Badge variant="success">Connected</Badge>
                       </div>
-                      <Badge variant={connected ? "success" : "secondary"}>
-                        {connected ? "Connected" : "Disconnected"}
-                      </Badge>
-                    </div>
-                    <div>
-                      <h3 className="font-semibold">{def.name}</h3>
-                      <p className="mt-1 text-sm text-muted-foreground">{def.description}</p>
-                      {connected && existing?.config?.connected_pages?.length > 0 && (
-                        <p className="mt-1 text-xs text-muted-foreground">
-                          {existing.config.connected_pages.length} {existing.config.connected_pages.length === 1 ? "page" : "pages"}:{" "}
-                          {existing.config.connected_pages.map((p: any) => p.page_name).join(", ")}
-                        </p>
-                      )}
-                    </div>
-                    <div className="flex gap-2">
-                      {connected ? (
-                        <>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleSync(existing.id)}
-                            disabled={syncingId === existing.id}
-                          >
-                            {syncingId === existing.id ? (
-                              <Spinner size="sm" className="h-4 w-4" />
-                            ) : (
-                              <RefreshCw className="h-4 w-4" />
-                            )}
-                            Sync
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="destructive"
-                            onClick={() => disconnectMutation.mutate(existing.id)}
-                            disabled={disconnectMutation.isPending}
-                          >
-                            Disconnect
-                          </Button>
-                        </>
-                      ) : (
+                      <div>
+                        <h3 className="font-semibold">{def.name}</h3>
+                        {existing.display_name && (
+                          <p className="text-xs font-medium text-foreground/80">{existing.display_name}</p>
+                        )}
+                        <p className="mt-1 text-sm text-muted-foreground">{def.description}</p>
+                        {existing?.config?.connected_pages?.length > 0 && (
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            {existing.config.connected_pages.length} {existing.config.connected_pages.length === 1 ? "page" : "pages"}:{" "}
+                            {existing.config.connected_pages.map((p: any) => p.page_name).join(", ")}
+                          </p>
+                        )}
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleSync(existing.id)}
+                          disabled={syncingId === existing.id}
+                        >
+                          {syncingId === existing.id ? (
+                            <Spinner size="sm" className="h-4 w-4" />
+                          ) : (
+                            <RefreshCw className="h-4 w-4" />
+                          )}
+                          Sync
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          onClick={() => disconnectMutation.mutate(existing.id)}
+                          disabled={disconnectMutation.isPending}
+                        >
+                          Disconnect
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              }
+
+              // "Add another" card for Facebook (always show for connectable types)
+              if (def.type === "facebook" || connectedOnes.length === 0) {
+                cards.push(
+                  <Card key={`${def.type}-add`}>
+                    <CardContent className="p-5 space-y-4">
+                      <div className="flex items-start justify-between">
+                        <div className={`flex h-10 w-10 items-center justify-center rounded-lg bg-muted ${def.color}`}>
+                          <Icon className="h-5 w-5" />
+                        </div>
+                        <Badge variant="secondary">
+                          {connectedOnes.length > 0 ? `+${connectedOnes.length} connected` : "Not connected"}
+                        </Badge>
+                      </div>
+                      <div>
+                        <h3 className="font-semibold">
+                          {connectedOnes.length > 0 ? `Add Another ${def.name}` : def.name}
+                        </h3>
+                        <p className="mt-1 text-sm text-muted-foreground">{def.description}</p>
+                      </div>
+                      <div className="flex gap-2">
                         <Button
                           size="sm"
                           onClick={() => connectMutation.mutate(def.type)}
@@ -363,13 +392,15 @@ function IntegrationsContent() {
                           ) : (
                             <Plug className="h-4 w-4" />
                           )}
-                          Connect
+                          {connectedOnes.length > 0 ? "Connect New Account" : "Connect"}
                         </Button>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-              );
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              }
+
+              return cards;
             })}
       </div>
 

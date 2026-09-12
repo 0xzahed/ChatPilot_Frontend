@@ -1,23 +1,14 @@
 import { createApi } from "@reduxjs/toolkit/query/react";
 import baseApi from "./baseApi";
-
-export interface Notification {
-  id: string;
-  type?: string;
-  title?: string;
-  message?: string;
-  read?: boolean;
-  created_at?: string;
-  [key: string]: any;
-}
+import type { Notification } from "@/types/api";
 
 export const notificationApi = createApi({
   reducerPath: "notificationApi",
   baseQuery: baseApi,
   tagTypes: ["Notification"],
   endpoints: (builder) => ({
-    getNotifications: builder.query<{ results: Notification[]; count: number; next: string | null; previous: string | null } | Notification[], any>({
-      query: (params) => ({ url: "/notifications/", method: "GET", params }),
+    getNotifications: builder.query<{ results: Notification[]; count: number; next: string | null; previous: string | null } | Notification[], Record<string, unknown> | void>({
+      query: (params) => ({ url: "/notifications/", method: "GET", params: params || undefined }),
       providesTags: ["Notification"],
     }),
     markRead: builder.mutation<void, string>({

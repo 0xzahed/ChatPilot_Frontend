@@ -1,32 +1,6 @@
 import { createApi } from "@reduxjs/toolkit/query/react";
 import baseApi from "./baseApi";
-
-export interface Plan {
-  id: string;
-  name: string;
-  price_monthly?: number;
-  price_yearly?: number;
-  message_limit?: number;
-  team_member_limit?: number;
-  is_trial?: boolean;
-  [key: string]: any;
-}
-
-export interface Subscription {
-  id: string;
-  plan?: Plan;
-  status?: string;
-  [key: string]: any;
-}
-
-export interface Invoice {
-  id: string;
-  [key: string]: any;
-}
-
-export interface Usage {
-  [key: string]: any;
-}
+import type { Plan, Subscription, Invoice, UsageRecord } from "@/types/api";
 
 export const billingApi = createApi({
   reducerPath: "billingApi",
@@ -38,22 +12,22 @@ export const billingApi = createApi({
       providesTags: ["Plan"],
     }),
     getSubscription: builder.query<Subscription, string>({
-      query: (workspaceId) => `/billing/${workspaceId}/subscription/`,
+      query: (workspaceId) => `/billing/subscription/${workspaceId}/`,
       providesTags: (r, e, id) => [{ type: "Subscription", id }],
     }),
-    subscribe: builder.mutation<Subscription, { workspaceId: string; planId: string; billingCycle?: string }>({
-      query: ({ workspaceId, planId, billingCycle }) => ({
-        url: `/billing/${workspaceId}/subscription/`,
+    subscribe: builder.mutation<Subscription, { workspaceId: string; planId: string }>({
+      query: ({ workspaceId, planId }) => ({
+        url: "/billing/subscribe/",
         method: "POST",
-        body: { plan_id: planId, billing_cycle: billingCycle },
+        body: { workspace_id: workspaceId, plan_id: planId },
       }),
-      invalidatesTags: (r, e, { workspaceId }) => [{ type: "Subscription", id: workspaceId }],
+      invalidatesTags: ["Subscription"],
     }),
-    getInvoices: builder.query<Invoice[], void>({
-      query: () => "/billing/invoices/",
+    getInvoices: builder.query<Invoice[], string>({
+      query: (workspaceId) => `/billing/invoices/${workspaceId}/`,
       providesTags: ["Invoice"],
     }),
-    getUsage: builder.query<Usage, string>({
+    getUsage: builder.query<UsageRecord, string>({
       query: (workspaceId) => `/usage/${workspaceId}/`,
       providesTags: (r, e, id) => [{ type: "Usage", id }],
     }),

@@ -1,9 +1,6 @@
 import { createApi } from "@reduxjs/toolkit/query/react";
 import baseApi from "./baseApi";
-
-export interface WebchatConfig {
-  [key: string]: any;
-}
+import type { WebchatConfig } from "@/types/api";
 
 export const webchatApi = createApi({
   reducerPath: "webchatApi",
@@ -14,7 +11,7 @@ export const webchatApi = createApi({
       query: (workspaceId) => `/webchat/config/${workspaceId}/`,
       providesTags: (r, e, id) => [{ type: "WebchatConfig", id }],
     }),
-    updateWebchatConfig: builder.mutation<WebchatConfig, { workspaceId: string; data: any }>({
+    updateWebchatConfig: builder.mutation<WebchatConfig, { workspaceId: string; data: Record<string, unknown> }>({
       query: ({ workspaceId, data }) => ({
         url: `/webchat/config/${workspaceId}/`,
         method: "PATCH",
