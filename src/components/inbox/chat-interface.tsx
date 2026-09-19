@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import DOMPurify from "dompurify";
 import {
   useGetConversationQuery,
   useGetMessagesQuery,
@@ -27,6 +28,26 @@ import {
 
 interface ChatInterfaceProps {
   conversationId: string;
+}
+
+const HTML_RE = /<[a-z][^>]*>/i;
+
+/** Renders message content — plain text stays text; HTML bodies (iedu
+ * marketing/support templates) render sanitized so tags don't leak raw. */
+function MessageContent({ content, className }: { content: string; className?: string }) {
+  if (!HTML_RE.test(content || "")) {
+    return <p className={cn("text-sm whitespace-pre-wrap", className)}>{content}</p>;
+  }
+  const clean = DOMPurify.sanitize(content, {
+    USE_PROFILES: { html: true },
+    ADD_ATTR: ["target"],
+  });
+  return (
+    <div
+      className={cn("text-sm [&_a]:underline [&_a]:text-inherit [&_img]:max-w-full", className)}
+      dangerouslySetInnerHTML={{ __html: clean }}
+    />
+  );
 }
 
 export function ChatInterface({ conversationId }: ChatInterfaceProps) {
@@ -241,7 +262,7 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
                     {att.file_type === "image" ? "🖼" : "📎"} {att.file_name || "Attachment"}
                   </a>
                 ))}
-                <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+                <MessageContent content={msg.content || ""} />
                 <p className={cn("mt-1 text-[10px]", msg.sender_type === "customer" ? "text-muted-foreground" : "opacity-60")}>
                   {formatTime(msg.created_at)}
                   {msg.sender_type !== "customer" && msg.status === "read" && " • Read"}

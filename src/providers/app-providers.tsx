@@ -28,16 +28,31 @@ export function useAuth() {
  * JavaScript never sees them. The X-Requested-With header satisfies the
  * backend's CSRF check for cookie-authenticated requests.
  */
-async function authFetch(path: string, init?: RequestInit) {
-  const res = await fetch(`/api${path}`, {
-    credentials: "include",
-    headers: {
-      "Content-Type": "application/json",
-      "X-Requested-With": "XMLHttpRequest",
-      ...(init?.headers || {}),
-    },
-    ...init,
-  });
+async function authFetch(path: string, init?: RequestInit, opts?: { retry401?: boolean }) {
+  const doFetch = () =>
+    fetch(`/api${path}`, {
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Requested-With": "XMLHttpRequest",
+        ...(init?.headers || {}),
+      },
+      ...init,
+    });
+
+  let res = await doFetch();
+  // Expired access cookie? Try a silent refresh once — the refresh cookie
+  // lives 7 days, so a page reload shouldn't dump the user back to login.
+  if (res.status === 401 && opts?.retry401 !== false && path !== "/auth/refresh/") {
+    const rr = await fetch("/api/auth/refresh/", {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json", "X-Requested-With": "XMLHttpRequest" },
+      body: "{}",
+    });
+    if (rr.ok) res = await doFetch();
+  }
+
   const body = await res.json().catch(() => ({}));
   if (!res.ok) {
     const message =
@@ -73,10 +88,14 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
   }, []);
 
   const login = useCallback(async (email: string, password: string) => {
-    const data = await authFetch("/auth/login/", {
-      method: "POST",
-      body: JSON.stringify({ email, password, cookie_mode: true }),
-    });
+    const data = await authFetch(
+      "/auth/login/",
+      {
+        method: "POST",
+        body: JSON.stringify({ email, password, cookie_mode: true }),
+      },
+      { retry401: false } // a failed login must not trigger the refresh path
+    );
     setUser(data?.user ?? null);
   }, []);
 
