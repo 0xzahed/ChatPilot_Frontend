@@ -3,7 +3,12 @@ import type { NextConfig } from "next";
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 const nextConfig: NextConfig = {
-  allowedDevOrigins: ["144.79.133.198", "127.0.0.1", "localhost"],
+  allowedDevOrigins: [
+    "chatpilot.ieducationbd.com",
+    "144.79.133.198",
+    "127.0.0.1",
+    "localhost",
+  ],
 
   // Same-origin API proxy: the SPA calls /api/* and Next forwards it to the
   // backend, so HttpOnly auth cookies are always first-party regardless of
