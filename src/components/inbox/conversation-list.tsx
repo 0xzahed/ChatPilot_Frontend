@@ -12,7 +12,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Search, Bot, AlertTriangle, ShoppingCart } from "lucide-react";
+import { Search, Bot, AlertTriangle, ShoppingCart, ChevronLeft, ChevronRight } from "lucide-react";
 
 // Facebook icon (not available in this lucide version)
 function FacebookIcon({ className }: { className?: string }) {
@@ -40,11 +40,24 @@ const FILTERS = [
 
 const CHANNELS = ["all", "facebook", "instagram", "whatsapp", "website"];
 
+const PAGE_SIZE = 30;
+
 export function ConversationList({ selectedId, onSelect }: ConversationListProps) {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("all");
   const [channel, setChannel] = useState("all");
   const [selectedPageId, setSelectedPageId] = useState<string>("all");
+
+  // Page resets to 1 whenever the filter/search selection changes —
+  // implemented as render-time derived state (no setState-in-effect).
+  const filterKey = [search, filter, channel, selectedPageId].join("|");
+  const [pageState, setPageState] = useState({ key: filterKey, page: 1 });
+  const page = pageState.key === filterKey ? pageState.page : 1;
+  const setPage = (p: number | ((prev: number) => number)) =>
+    setPageState((s) => ({
+      key: filterKey,
+      page: typeof p === "function" ? p(s.key === filterKey ? s.page : 1) : p,
+    }));
 
   // Fetch connected Facebook pages for the page filter dropdown
   const { data: fbPagesData } = useGetFacebookPagesQuery();
@@ -53,7 +66,7 @@ export function ConversationList({ selectedId, onSelect }: ConversationListProps
   // Live sync via WebSocket — invalidates Conversation tags on new_message
   useInboxWebSocket(selectedId || undefined);
 
-  const params: any = {};
+  const params: any = { page, limit: PAGE_SIZE };
   if (search) params.search = search;
   if (filter === "unread") params.unread = "true";
   if (filter === "open") params.status = "open";
@@ -70,7 +83,12 @@ export function ConversationList({ selectedId, onSelect }: ConversationListProps
   });
   const data = rawData as any;
 
-  const conversations: any[] = data?.results || data || [];
+  const conversations: any[] = data?.results || data?.data || (Array.isArray(data) ? data : []);
+  const pagination = data?.pagination as
+    | { page: number; limit: number; total: number; total_pages: number }
+    | undefined;
+  const totalPages = pagination?.total_pages ?? 1;
+  const totalCount = pagination?.total ?? conversations.length;
 
   // Refetch on window focus for freshest data
   useEffect(() => {
@@ -247,6 +265,36 @@ export function ConversationList({ selectedId, onSelect }: ConversationListProps
           ))
         )}
       </div>
+
+      {/* Pagination */}
+      {!isLoading && conversations.length > 0 && (
+        <div className="flex items-center justify-between border-t border-border px-3 py-2">
+          <p className="text-xs text-muted-foreground">
+            {totalCount.toLocaleString()} conversations
+          </p>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={page <= 1}
+              className="rounded p-1 text-muted-foreground hover:bg-accent disabled:opacity-40 disabled:pointer-events-none"
+              aria-label="Previous page"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+            <span className="min-w-16 text-center text-xs text-muted-foreground">
+              {page} / {totalPages.toLocaleString()}
+            </span>
+            <button
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              disabled={page >= totalPages}
+              className="rounded p-1 text-muted-foreground hover:bg-accent disabled:opacity-40 disabled:pointer-events-none"
+              aria-label="Next page"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
