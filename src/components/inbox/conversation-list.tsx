@@ -84,11 +84,10 @@ export function ConversationList({ selectedId, onSelect }: ConversationListProps
   const data = rawData as any;
 
   const conversations: any[] = data?.results || data?.data || (Array.isArray(data) ? data : []);
-  const pagination = data?.pagination as
-    | { page: number; limit: number; total: number; total_pages: number }
-    | undefined;
-  const totalPages = pagination?.total_pages ?? 1;
-  const totalCount = pagination?.total ?? conversations.length;
+  // baseApi's unwrapResponse flattens backend pagination into
+  // {results, count, page, total_pages} — read those fields directly.
+  const totalPages = data?.total_pages ?? 1;
+  const totalCount = data?.count ?? conversations.length;
 
   // Refetch on window focus for freshest data
   useEffect(() => {
