@@ -2,15 +2,20 @@
 
 import { useEffect, useRef } from "react";
 import { useDispatch } from "react-redux";
+import type { AppDispatch } from "@/redux";
 import { conversationApi } from "@/redux/api/conversationApi";
 
 /**
  * WebSocket hook for inbox live sync.
  * Connects to Django Channels WorkspaceConsumer at /ws/workspaces/<id>/
  * and invalidates RTK Query cache tags so conversations/messages refetch.
+ *
+ * Auth: the browser exchanges its HttpOnly-cookie session for a short-lived
+ * single-use ticket (POST /api/auth/ws-ticket/) instead of putting the
+ * long-lived JWT in the WS URL.
  */
 export function useInboxWebSocket(activeConversationId?: string) {
-  const dispatch = useDispatch<any>();
+  const dispatch = useDispatch<AppDispatch>();
   const wsRef = useRef<WebSocket | null>(null);
   const activeIdRef = useRef<string | undefined>(activeConversationId);
 
@@ -20,16 +25,42 @@ export function useInboxWebSocket(activeConversationId?: string) {
 
   useEffect(() => {
     const wsBaseUrl = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:8000";
-    const token = typeof window !== "undefined" ? localStorage.getItem("access_token") : null;
-    const workspaceId = typeof window !== "undefined" ? localStorage.getItem("active_workspace_id") : null;
-    if (!token || !workspaceId) return;
+    const workspaceId =
+      typeof window !== "undefined" ? localStorage.getItem("active_workspace_id") : null;
+    if (!workspaceId) return;
 
-    const url = `${wsBaseUrl}/ws/workspaces/${workspaceId}/?token=${encodeURIComponent(token)}`;
     let ws: WebSocket | null = null;
     let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
     let closed = false;
 
-    const connect = () => {
+    const fetchTicket = async (): Promise<string | null> => {
+      try {
+        const res = await fetch("/api/auth/ws-ticket/", {
+          method: "POST",
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Requested-With": "XMLHttpRequest",
+          },
+          body: "{}",
+        });
+        if (!res.ok) return null;
+        const body = await res.json();
+        return body?.data?.ticket ?? null;
+      } catch {
+        return null;
+      }
+    };
+
+    const connect = async () => {
+      const ticket = await fetchTicket();
+      if (closed || !ticket) {
+        // No session (or backend down) — retry on a slower cadence.
+        if (!closed) reconnectTimer = setTimeout(connect, 5000);
+        return;
+      }
+
+      const url = `${wsBaseUrl}/ws/workspaces/${workspaceId}/?ticket=${encodeURIComponent(ticket)}`;
       ws = new WebSocket(url);
 
       ws.onopen = () => {

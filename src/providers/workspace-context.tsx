@@ -1,14 +1,9 @@
 "use client";
 
-import React, { createContext, useContext, useEffect, useState } from "react";
-import { workspaceApi } from "@/lib/api";
+import React, { createContext, useContext, useState, useCallback } from "react";
+import { useGetWorkspacesQuery } from "@/redux/api/workspaceApi";
 import { useAuth } from "@/providers/app-providers";
-
-interface Workspace {
-  id: string;
-  name: string;
-  slug: string;
-}
+import type { Workspace } from "@/types/api";
 
 interface WorkspaceContextType {
   workspace: Workspace | null;
@@ -27,40 +22,31 @@ export function useWorkspace() {
 
 export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
-  const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
-  const [workspace, setWorkspaceState] = useState<Workspace | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    if (!user) {
-      setWorkspaces([]);
-      setWorkspaceState(null);
-      setIsLoading(false);
-      return;
-    }
-    setIsLoading(true);
-    workspaceApi
-      .list()
-      .then((res) => {
-        setWorkspaces(res.data);
-        const savedId = localStorage.getItem("active_workspace_id");
-        const initial = res.data.find((w: Workspace) => w.id === savedId) || res.data[0] || null;
-        setWorkspaceState(initial);
-        if (initial) {
-          localStorage.setItem("active_workspace_id", initial.id);
-        }
-      })
-      .catch(() => {
-        setWorkspaces([]);
-        setWorkspaceState(null);
-      })
-      .finally(() => setIsLoading(false));
-  }, [user]);
+  const { data, isLoading: queryLoading } = useGetWorkspacesQuery(undefined, {
+    skip: !user,
+  });
+  const workspaces: Workspace[] = Array.isArray(data)
+    ? data
+    : (data as { results?: Workspace[] } | undefined)?.results ?? [];
 
-  const setWorkspace = (ws: Workspace) => {
-    setWorkspaceState(ws);
+  // Selection is derived state — the chosen id lives in localStorage + state;
+  // the resolved workspace falls back to the first available.
+  const [selectedId, setSelectedId] = useState<string | null>(() =>
+    typeof window !== "undefined" ? localStorage.getItem("active_workspace_id") : null
+  );
+
+  const workspace =
+    workspaces.find((w) => w.id === selectedId) ??
+    workspaces[0] ??
+    null;
+
+  const setWorkspace = useCallback((ws: Workspace) => {
+    setSelectedId(ws.id);
     localStorage.setItem("active_workspace_id", ws.id);
-  };
+  }, []);
+
+  const isLoading = !!user && queryLoading;
 
   return (
     <WorkspaceContext.Provider value={{ workspace, workspaces, setWorkspace, isLoading }}>

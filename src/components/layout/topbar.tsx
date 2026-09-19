@@ -3,14 +3,13 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useWorkspace } from "@/providers/workspace-context";
-import { usageApi } from "@/lib/api";
-import { useQuery } from "@tanstack/react-query";
+import { useGetUsageSummaryQuery } from "@/redux/api/usageApi";
+import { useGetNotificationsQuery } from "@/redux/api/notificationApi";
 import { Bell, Search, Menu, Moon, Sun } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Dropdown } from "@/components/ui/dropdown";
-import { notificationApi } from "@/lib/api";
 
 export function Topbar({ onMenuClick }: { onMenuClick: () => void }) {
   const router = useRouter();
@@ -18,18 +17,15 @@ export function Topbar({ onMenuClick }: { onMenuClick: () => void }) {
   const [search, setSearch] = useState("");
   const [isDark, setIsDark] = useState(false);
 
-  const { data: usage } = useQuery({
-    queryKey: ["usage", workspace?.id],
-    queryFn: () => usageApi.summary(workspace!.id).then((r) => r.data),
-    enabled: !!workspace,
+  const { data: usage } = useGetUsageSummaryQuery(workspace!.id, {
+    skip: !workspace,
   });
 
-  const { data: notifications } = useQuery({
-    queryKey: ["notifications", "unread"],
-    queryFn: () => notificationApi.list({ is_read: "false" }).then((r) => r.data),
-  });
+  const { data: notifications } = useGetNotificationsQuery({ is_read: "false" });
 
-  const unreadCount = notifications?.results?.length || notifications?.length || 0;
+  const unreadCount = Array.isArray(notifications)
+    ? notifications.length
+    : (notifications as { results?: unknown[] } | undefined)?.results?.length || 0;
 
   const toggleTheme = () => {
     const newDark = !isDark;
@@ -55,14 +51,14 @@ export function Topbar({ onMenuClick }: { onMenuClick: () => void }) {
         <Input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search conversations, customers..."
+          placeholder="Search conversations..."
           className="pl-9"
         />
       </form>
 
       <div className="flex items-center gap-2 ml-auto">
-        {usage && (
-          <Badge variant={usage.messages_remaining < usage.message_limit * 0.1 ? "warning" : "secondary"}>
+        {usage && usage.message_limit != null && usage.messages_used != null && (
+          <Badge variant={(usage.messages_remaining ?? 0) < usage.message_limit * 0.1 ? "warning" : "secondary"}>
             {usage.messages_used.toLocaleString()} / {usage.message_limit.toLocaleString()} messages
           </Badge>
         )}

@@ -381,8 +381,18 @@ export interface UsageRecord {
   period_start?: string;
   period_end?: string;
   messages_used?: number;
+  message_limit?: number;
+  messages_remaining?: number;
   ai_replies?: number;
+  ai_suggestions?: number;
+  comment_automation?: number;
+  vision_requests?: number;
+  tokens_input?: number;
+  tokens_output?: number;
   tokens_used?: number;
+  estimated_cost?: number;
+  team_members?: number;
+  team_member_limit?: number;
 }
 
 // ─── Analytics ──────────────────────────────────────────────

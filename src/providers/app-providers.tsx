@@ -2,7 +2,6 @@
 
 import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { authApi } from "@/lib/api";
 import { ToastProvider } from "@/components/ui/toast";
 import { ReduxProvider } from "@/redux";
 import type { User } from "@/types/api";
@@ -16,17 +15,36 @@ interface AuthContextType {
   setUser: (user: User | null) => void;
 }
 
-/** Set a non-sensitive marker cookie so middleware can gate protected routes. */
-function setAuthCookie(hasToken: boolean) {
-  document.cookie = `has_access_token=${hasToken}; path=/; max-age=${60 * 60 * 24 * 7}; SameSite=Lax`;
-}
-
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function useAuth() {
   const ctx = useContext(AuthContext);
   if (!ctx) throw new Error("useAuth must be used within AppProviders");
   return ctx;
+}
+
+/**
+ * Minimal cookie-auth fetch helpers. Tokens live in HttpOnly cookies —
+ * JavaScript never sees them. The X-Requested-With header satisfies the
+ * backend's CSRF check for cookie-authenticated requests.
+ */
+async function authFetch(path: string, init?: RequestInit) {
+  const res = await fetch(`/api${path}`, {
+    credentials: "include",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Requested-With": "XMLHttpRequest",
+      ...(init?.headers || {}),
+    },
+    ...init,
+  });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const message =
+      (body && (body.message || body.error?.message)) || `Request failed (${res.status})`;
+    throw new Error(message);
+  }
+  return body?.data ?? body;
 }
 
 export function AppProviders({ children }: { children: React.ReactNode }) {
@@ -45,41 +63,28 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
       })
   );
 
+  // Bootstrap: the access cookie is HttpOnly — just call /me and let the
+  // backend tell us whether the session is valid.
   useEffect(() => {
-    const token = localStorage.getItem("access_token");
-    if (token) {
-      setAuthCookie(true);
-      authApi
-        .me()
-        .then((res) => setUser(res.data))
-        .catch(() => {
-          localStorage.removeItem("access_token");
-          localStorage.removeItem("refresh_token");
-          setAuthCookie(false);
-        })
-        .finally(() => setIsLoading(false));
-    } else {
-      setAuthCookie(false);
-      setIsLoading(false);
-    }
+    authFetch("/auth/me/")
+      .then((data) => setUser(data))
+      .catch(() => setUser(null))
+      .finally(() => setIsLoading(false));
   }, []);
 
   const login = useCallback(async (email: string, password: string) => {
-    const res = await authApi.login(email, password);
-    localStorage.setItem("access_token", res.data.access);
-    localStorage.setItem("refresh_token", res.data.refresh);
-    setAuthCookie(true);
-    const meRes = await authApi.me();
-    setUser(meRes.data);
+    const data = await authFetch("/auth/login/", {
+      method: "POST",
+      body: JSON.stringify({ email, password, cookie_mode: true }),
+    });
+    setUser(data?.user ?? null);
   }, []);
 
   const logout = useCallback(() => {
-    const refresh = localStorage.getItem("refresh_token");
-    if (refresh) authApi.logout(refresh).catch(() => {});
-    localStorage.removeItem("access_token");
-    localStorage.removeItem("refresh_token");
-    setAuthCookie(false);
+    authFetch("/auth/logout/", { method: "POST", body: "{}" }).catch(() => {});
     setUser(null);
+    // Full reload intentionally resets all client state (RTK cache, contexts)
+    // eslint-disable-next-line @next/next/no-location-assign-relative-destination
     window.location.href = "/login";
   }, []);
 

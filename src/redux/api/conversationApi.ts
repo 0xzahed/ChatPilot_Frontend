@@ -54,6 +54,15 @@ export const conversationApi = createApi({
       query: ({ id, labelId }) => ({ url: `/conversations/${id}/labels/`, method: "DELETE", body: { label_id: labelId } }),
       invalidatesTags: (r, e, { id }) => [{ type: "Label", id: `CONV-${id}` }],
     }),
+    uploadAttachment: builder.mutation<Message, { id: string; file: File; content?: string }>({
+      query: ({ id, file, content }) => {
+        const formData = new FormData();
+        formData.append("file", file);
+        if (content) formData.append("content", content);
+        return { url: `/conversations/${id}/attachments/`, method: "POST", body: formData };
+      },
+      invalidatesTags: (r, e, { id }) => [{ type: "Message", id: `CONV-${id}` }, { type: "Conversation", id }],
+    }),
     sendTyping: builder.mutation<void, { id: string; isTyping: boolean }>({
       query: ({ id, isTyping }) => ({ url: `/conversations/${id}/typing/`, method: "POST", body: { is_typing: isTyping } }),
     }),
@@ -96,6 +105,7 @@ export const {
   useAddLabelMutation,
   useRemoveLabelMutation,
   useSendTypingMutation,
+  useUploadAttachmentMutation,
   useGetLabelsQuery,
   useCreateLabelMutation,
   useUpdateLabelMutation,

@@ -12,19 +12,19 @@ export const billingApi = createApi({
       providesTags: ["Plan"],
     }),
     getSubscription: builder.query<Subscription, string>({
-      query: (workspaceId) => `/billing/subscription/${workspaceId}/`,
+      query: (workspaceId) => `/billing/${workspaceId}/subscription/`,
       providesTags: (r, e, id) => [{ type: "Subscription", id }],
     }),
-    subscribe: builder.mutation<Subscription, { workspaceId: string; planId: string }>({
-      query: ({ workspaceId, planId }) => ({
-        url: "/billing/subscribe/",
+    subscribe: builder.mutation<Subscription, { workspaceId: string; planId: string; billingCycle?: string }>({
+      query: ({ workspaceId, planId, billingCycle }) => ({
+        url: `/billing/${workspaceId}/subscription/`,
         method: "POST",
-        body: { workspace_id: workspaceId, plan_id: planId },
+        body: { plan_id: planId, billing_cycle: billingCycle ?? "monthly" },
       }),
       invalidatesTags: ["Subscription"],
     }),
-    getInvoices: builder.query<Invoice[], string>({
-      query: (workspaceId) => `/billing/invoices/${workspaceId}/`,
+    getInvoices: builder.query<Invoice[], void>({
+      query: () => "/billing/invoices/",
       providesTags: ["Invoice"],
     }),
     getUsage: builder.query<UsageRecord, string>({

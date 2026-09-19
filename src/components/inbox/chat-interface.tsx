@@ -8,6 +8,7 @@ import {
   useAiSuggestMutation,
   useCloseConversationMutation,
   useReopenConversationMutation,
+  useUploadAttachmentMutation,
 } from "@/redux/api/conversationApi";
 import { useInboxWebSocket } from "@/hooks/useInboxWebSocket";
 import { cn, formatTime, getInitials } from "@/lib/utils";
@@ -68,6 +69,24 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
   const [aiSuggest, { isLoading: aiLoading }] = useAiSuggestMutation();
   const [closeConversation] = useCloseConversationMutation();
   const [reopenConversation] = useReopenConversationMutation();
+  const [uploadAttachment, { isLoading: isUploading }] = useUploadAttachmentMutation();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    if (file.size > 10 * 1024 * 1024) {
+      toast({ type: "error", title: "File too large (max 10 MB)" });
+      return;
+    }
+    uploadAttachment({ id: conversationId, file })
+      .unwrap()
+      .then(() => toast({ type: "success", title: "File sent" }))
+      .catch((err: any) => {
+        toast({ type: "error", title: err?.data?.error?.message || "Upload failed" });
+      });
+  };
 
   const handleSend = (e: React.FormEvent) => {
     e.preventDefault();
@@ -211,6 +230,17 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
                     <User className="h-3 w-3" /> Agent
                   </div>
                 )}
+                {Array.isArray(msg.attachments) && msg.attachments.map((att: any) => (
+                  <a
+                    key={att.id}
+                    href={att.file_url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="mb-1 block text-xs underline opacity-80 hover:opacity-100"
+                  >
+                    {att.file_type === "image" ? "🖼" : "📎"} {att.file_name || "Attachment"}
+                  </a>
+                ))}
                 <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
                 <p className={cn("mt-1 text-[10px]", msg.sender_type === "customer" ? "text-muted-foreground" : "opacity-60")}>
                   {formatTime(msg.created_at)}
@@ -260,7 +290,21 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
       {/* Input */}
       <div className="border-t border-border p-3">
         <form onSubmit={handleSend} className="flex items-center gap-2">
-          <Button variant="ghost" size="icon" type="button">
+          <input
+            ref={fileInputRef}
+            type="file"
+            className="hidden"
+            accept=".jpg,.jpeg,.png,.gif,.webp,.pdf,.txt,.csv,.doc,.docx,.xls,.xlsx,.mp3,.mp4,.zip"
+            onChange={handleFileSelect}
+          />
+          <Button
+            variant="ghost"
+            size="icon"
+            type="button"
+            disabled={isUploading}
+            onClick={() => fileInputRef.current?.click()}
+            title="Attach a file"
+          >
             <Paperclip className="h-4 w-4" />
           </Button>
           <Input

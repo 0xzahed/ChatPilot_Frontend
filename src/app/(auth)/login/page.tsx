@@ -88,11 +88,6 @@ export default function LoginPage() {
         </Button>
       </form>
 
-      <div className="mt-6 rounded-lg border border-border bg-muted/50 p-4 text-sm">
-        <p className="font-medium text-foreground">Demo credentials:</p>
-        <p className="mt-1 text-muted-foreground">admin@chatpilot.local / ChatPilot@2026</p>
-      </div>
-
       <p className="mt-6 text-center text-sm text-muted-foreground">
         Don't have an account?{" "}
         <Link href="/register" className="font-medium text-primary hover:underline">

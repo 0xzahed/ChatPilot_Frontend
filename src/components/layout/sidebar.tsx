@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/providers/app-providers";
 import { useWorkspace } from "@/providers/workspace-context";
 import {
-  LayoutDashboard, Inbox, Users, ShoppingCart,
+  LayoutDashboard, Inbox, Users,
   AlertTriangle, Zap, BarChart3, Settings, Plug, Tag,
   MessageSquare, ChevronDown, LogOut, User, ShieldCheck,
   CreditCard,
@@ -18,9 +18,6 @@ import { getInitials } from "@/lib/utils";
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/inbox", label: "Inbox", icon: Inbox },
-  { href: "/customers", label: "Customers", icon: Users },
-  { href: "/orders", label: "Orders", icon: ShoppingCart },
-  { href: "/complaints", label: "Complaints", icon: AlertTriangle },
   { href: "/automation", label: "Automation", icon: Zap },
   { href: "/analytics", label: "Analytics", icon: BarChart3 },
   { href: "/integrations", label: "Integrations", icon: Plug },

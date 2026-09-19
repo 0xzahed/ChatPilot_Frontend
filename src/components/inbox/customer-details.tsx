@@ -16,7 +16,7 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Phone, Mail, MapPin, ShoppingCart, Clock, Tag,
-  AlertTriangle, MessageSquare, Package,
+  AlertTriangle, MessageSquare,
 } from "lucide-react";
 
 interface CustomerDetailsProps {
@@ -31,7 +31,21 @@ export function CustomerDetails({ conversationId }: CustomerDetailsProps) {
   const { data: rawCustomer, isLoading } = useGetCustomerQuery(customerId, {
     skip: !customerId,
   });
-  const customer = rawCustomer as any;
+  // iedu-proxied conversations have no local customer row — build one from
+  // the conversation's own fields instead
+  const isIedu = String(conversationId).startsWith("iedu_");
+  const customer = (rawCustomer as any) || (isIedu && conversation ? {
+    name: conversation.customer_name,
+    phone: conversation.customer_phone,
+    avatar: conversation.customer_avatar,
+    email: null,
+    location: null,
+    language: conversation.language,
+    is_vip: false,
+    created_at: conversation.created_at,
+    channels: [{ id: "iedu", channel: "website", display_name: "iedu Support" }],
+    labels: conversation.labels || [],
+  } : null);
   const { data: ordersData } = useGetOrdersQuery(
     { customer: customerId },
     { skip: !customerId }
@@ -116,24 +130,6 @@ export function CustomerDetails({ conversationId }: CustomerDetailsProps) {
           </CardContent>
         </Card>
       )}
-
-      {/* Stats */}
-      <div className="grid grid-cols-2 gap-3">
-        <Card>
-          <CardContent className="p-3 text-center">
-            <ShoppingCart className="mx-auto h-5 w-5 text-muted-foreground" />
-            <p className="mt-1 text-lg font-bold">{customer.total_orders || 0}</p>
-            <p className="text-xs text-muted-foreground">Orders</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-3 text-center">
-            <Package className="mx-auto h-5 w-5 text-muted-foreground" />
-            <p className="mt-1 text-lg font-bold">{formatCurrency(customer.total_spent || 0)}</p>
-            <p className="text-xs text-muted-foreground">Total Spent</p>
-          </CardContent>
-        </Card>
-      </div>
 
       {/* Labels */}
       {customer.labels && customer.labels.length > 0 && (

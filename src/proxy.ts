@@ -2,9 +2,8 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
 /**
- * Protects dashboard routes by checking for an access token.
- * Since JWT is stored in localStorage (client-side), the proxy
- * can only check for the token's presence — full validation happens
+ * Protects dashboard routes by checking for the HttpOnly access-token
+ * cookie set by the backend on login. Full validation still happens
  * client-side in the dashboard layout.
  *
  * Public routes: /, /login, /register, /forgot-password, /reset-password
@@ -29,10 +28,10 @@ export function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // For protected routes, check for token cookie.
-  // The frontend stores JWT in localStorage, which proxy cannot read.
-  // We set a non-sensitive marker cookie on login to allow proxy-level gating.
-  const hasToken = request.cookies.get("has_access_token")?.value === "true";
+  // For protected routes, check for the auth cookie. The JWT itself is
+  // HttpOnly — JS never sees it — but the cookie is visible to this
+  // server-side function, so no separate marker cookie is needed.
+  const hasToken = !!request.cookies.get("access_token")?.value;
 
   if (!hasToken) {
     const loginUrl = new URL("/login", request.url);
