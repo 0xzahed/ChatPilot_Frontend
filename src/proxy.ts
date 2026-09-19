@@ -31,7 +31,10 @@ export function proxy(request: NextRequest) {
   // For protected routes, check for the auth cookie. The JWT itself is
   // HttpOnly — JS never sees it — but the cookie is visible to this
   // server-side function, so no separate marker cookie is needed.
-  const hasToken = !!request.cookies.get("access_token")?.value;
+  // Namespaced cookie name — must match backend AUTH_COOKIE_ACCESS_NAME.
+  // The host is shared with other apps; a generic "access_token" name
+  // would collide with their session cookies.
+  const hasToken = !!request.cookies.get("cp_access")?.value;
 
   if (!hasToken) {
     const loginUrl = new URL("/login", request.url);
