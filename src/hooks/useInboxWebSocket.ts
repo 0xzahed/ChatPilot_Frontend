@@ -64,7 +64,6 @@ export function useInboxWebSocket(activeConversationId?: string) {
       ws = new WebSocket(url);
 
       ws.onopen = () => {
-        // eslint-disable-next-line no-console
         console.log("[InboxWS] connected");
       };
 
@@ -105,12 +104,10 @@ export function useInboxWebSocket(activeConversationId?: string) {
       };
 
       ws.onerror = () => {
-        // eslint-disable-next-line no-console
         console.error("[InboxWS] error");
       };
 
       ws.onclose = () => {
-        // eslint-disable-next-line no-console
         console.log("[InboxWS] disconnected");
         if (!closed) {
           reconnectTimer = setTimeout(connect, 3000);
