@@ -85,7 +85,7 @@ export default function AnalyticsPage() {
   const aiVsHuman = charts?.ai_vs_human || [];
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
@@ -94,7 +94,7 @@ export default function AnalyticsPage() {
             Track conversations, orders, revenue, and team performance.
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           {DATE_RANGES.map((r) => (
             <Button
               key={r.days}

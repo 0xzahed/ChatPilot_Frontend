@@ -79,9 +79,9 @@ export default function TeamPage() {
     [m.user?.first_name, m.user?.last_name].filter(Boolean).join(" ") || m.user?.email?.split("@")[0] || "Member";
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold">Team Members</h1>
           <p className="text-sm text-muted-foreground">

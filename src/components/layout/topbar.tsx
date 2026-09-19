@@ -41,7 +41,7 @@ export function Topbar({ onMenuClick }: { onMenuClick: () => void }) {
   };
 
   return (
-    <header className="flex h-16 items-center gap-4 border-b border-border bg-card px-4 lg:px-6">
+    <header className="flex h-16 items-center gap-2 border-b border-border bg-card px-3 sm:gap-4 sm:px-4 lg:px-6">
       <Button variant="ghost" size="icon" className="lg:hidden" onClick={onMenuClick}>
         <Menu className="h-5 w-5" />
       </Button>
@@ -58,7 +58,7 @@ export function Topbar({ onMenuClick }: { onMenuClick: () => void }) {
 
       <div className="flex items-center gap-2 ml-auto">
         {usage && usage.message_limit != null && usage.messages_used != null && (
-          <Badge variant={(usage.messages_remaining ?? 0) < usage.message_limit * 0.1 ? "warning" : "secondary"}>
+          <Badge variant={(usage.messages_remaining ?? 0) < usage.message_limit * 0.1 ? "warning" : "secondary"} className="hidden md:inline-flex">
             {usage.messages_used.toLocaleString()} / {usage.message_limit.toLocaleString()} messages
           </Badge>
         )}

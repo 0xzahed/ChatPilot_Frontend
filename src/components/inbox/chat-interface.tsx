@@ -23,11 +23,13 @@ import { Dropdown } from "@/components/ui/dropdown";
 import { useToast } from "@/components/ui/toast";
 import {
   Send, Bot, User, AlertTriangle, Sparkles,
-  MoreVertical, Check, X, Paperclip,
+  MoreVertical, Check, X, Paperclip, ArrowLeft, Info,
 } from "lucide-react";
 
 interface ChatInterfaceProps {
   conversationId: string;
+  onBack?: () => void;
+  onShowDetails?: () => void;
 }
 
 const HTML_RE = /<[a-z][^>]*>/i;
@@ -50,7 +52,7 @@ function MessageContent({ content, className }: { content: string; className?: s
   );
 }
 
-export function ChatInterface({ conversationId }: ChatInterfaceProps) {
+export function ChatInterface({ conversationId, onBack, onShowDetails }: ChatInterfaceProps) {
   const [message, setMessage] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const [aiSuggestion, setAiSuggestion] = useState<string | null>(null);
@@ -158,15 +160,20 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
   return (
     <div className="flex h-full flex-col">
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-border p-3">
-        <div className="flex items-center gap-3">
-          <Avatar className="h-10 w-10">
+      <div className="flex items-center justify-between gap-2 border-b border-border p-3">
+        <div className="flex min-w-0 items-center gap-3">
+          {onBack && (
+            <Button variant="ghost" size="icon" className="shrink-0 lg:hidden" onClick={onBack}>
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+          )}
+          <Avatar className="h-10 w-10 shrink-0">
             {conversation?.customer_avatar && <AvatarImage src={conversation.customer_avatar} />}
             <AvatarFallback>{getInitials(conversation?.customer_name || "U")}</AvatarFallback>
           </Avatar>
-          <div>
+          <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <p className="font-medium">{conversation?.customer_name}</p>
+              <p className="truncate font-medium">{conversation?.customer_name}</p>
               <ChannelBadge channel={conversation?.channel} />
             </div>
             <p className="text-xs text-muted-foreground">
@@ -176,9 +183,9 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex shrink-0 items-center gap-2">
           {conversation?.handled_by === "ai" && (
-            <Badge variant="secondary">
+            <Badge variant="secondary" className="hidden sm:inline-flex">
               <Bot className="h-3 w-3 mr-1" /> AI Handled
             </Badge>
           )}
@@ -191,6 +198,12 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
             <Badge variant="success">Open</Badge>
           ) : (
             <Badge variant="secondary">Closed</Badge>
+          )}
+
+          {onShowDetails && (
+            <Button variant="ghost" size="icon" className="xl:hidden" onClick={onShowDetails}>
+              <Info className="h-4 w-4" />
+            </Button>
           )}
 
           <Dropdown
