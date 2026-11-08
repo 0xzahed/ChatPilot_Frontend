@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils";
 function InboxContent() {
   const searchParams = useSearchParams();
   const initialId = searchParams.get("id");
+  const initialSearch = searchParams.get("search") || "";
   const [selectedId, setSelectedId] = useState<string | null>(initialId);
   const [showDetails, setShowDetails] = useState(true);
   const [mobileDetailsOpen, setMobileDetailsOpen] = useState(false);
@@ -26,7 +27,7 @@ function InboxContent() {
           selectedId ? "hidden lg:block" : "block"
         )}
       >
-        <ConversationList selectedId={selectedId} onSelect={setSelectedId} />
+        <ConversationList selectedId={selectedId} onSelect={setSelectedId} initialSearch={initialSearch} />
       </div>
 
       {/* Column 2: Chat — hidden on mobile until a conversation is picked */}

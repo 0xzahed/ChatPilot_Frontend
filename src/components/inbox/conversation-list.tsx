@@ -26,6 +26,7 @@ function FacebookIcon({ className }: { className?: string }) {
 interface ConversationListProps {
   selectedId: string | null;
   onSelect: (id: string) => void;
+  initialSearch?: string;
 }
 
 const FILTERS = [
@@ -42,8 +43,8 @@ const CHANNELS = ["all", "facebook", "instagram", "whatsapp", "website"];
 
 const PAGE_SIZE = 30;
 
-export function ConversationList({ selectedId, onSelect }: ConversationListProps) {
-  const [search, setSearch] = useState("");
+export function ConversationList({ selectedId, onSelect, initialSearch = "" }: ConversationListProps) {
+  const [search, setSearch] = useState(initialSearch);
   const [filter, setFilter] = useState("all");
   const [channel, setChannel] = useState("all");
   const [selectedPageId, setSelectedPageId] = useState<string>("all");

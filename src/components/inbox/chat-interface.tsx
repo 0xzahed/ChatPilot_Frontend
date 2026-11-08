@@ -34,6 +34,16 @@ interface ChatInterfaceProps {
 
 const HTML_RE = /<[a-z][^>]*>/i;
 
+/** Translate common Meta/Graph API rejection reasons into something an
+ * agent can act on, instead of raw API error text. */
+function friendlyChannelError(raw?: string): string {
+  if (!raw) return "The channel rejected this message.";
+  if (/outside the allowed window|\(#10\)/i.test(raw)) {
+    return "Can't send — it's been over 24 hours since the customer's last message. Messenger only allows replies within that window; wait for them to message again.";
+  }
+  return raw;
+}
+
 /** Renders message content — plain text stays text; HTML bodies (iedu
  * marketing/support templates) render sanitized so tags don't leak raw. */
 function MessageContent({ content, className }: { content: string; className?: string }) {
@@ -116,7 +126,19 @@ export function ChatInterface({ conversationId, onBack, onShowDetails }: ChatInt
     if (!message.trim()) return;
     sendMessage({ id: conversationId, content: message })
       .unwrap()
-      .then(() => setMessage(""))
+      .then((res: any) => {
+        setMessage("");
+        // The API returns 201 even when the channel send failed (the
+        // message is still saved so the agent sees the failed attempt) —
+        // status is what actually tells us whether Meta accepted it.
+        if (res?.status === "failed") {
+          toast({
+            type: "error",
+            title: "Message not delivered",
+            description: friendlyChannelError(res?.ai_metadata?.send_error),
+          });
+        }
+      })
       .catch((err: any) => {
         toast({ type: "error", title: err?.data?.error?.message || "Failed to send message" });
       });
@@ -247,7 +269,9 @@ export function ChatInterface({ conversationId, onBack, onShowDetails }: ChatInt
               <div
                 className={cn(
                   "max-w-[70%] rounded-lg px-3 py-2",
-                  msg.sender_type === "customer"
+                  msg.status === "failed"
+                    ? "bg-destructive/10 border border-destructive/40 text-foreground"
+                    : msg.sender_type === "customer"
                     ? "bg-muted text-foreground"
                     : msg.sender_type === "ai"
                     ? "bg-indigo-500/10 border border-indigo-500/20 text-foreground"
@@ -276,9 +300,18 @@ export function ChatInterface({ conversationId, onBack, onShowDetails }: ChatInt
                   </a>
                 ))}
                 <MessageContent content={msg.content || ""} />
-                <p className={cn("mt-1 text-[10px]", msg.sender_type === "customer" ? "text-muted-foreground" : "opacity-60")}>
-                  {formatTime(msg.created_at)}
-                  {msg.sender_type !== "customer" && msg.status === "read" && " • Read"}
+                <p className={cn("mt-1 text-[10px]", msg.status === "failed" ? "text-destructive font-medium" : msg.sender_type === "customer" ? "text-muted-foreground" : "opacity-60")}>
+                  {msg.status === "failed" ? (
+                    <>
+                      <AlertTriangle className="mr-1 inline h-3 w-3" />
+                      Not delivered — {friendlyChannelError(msg.ai_metadata?.send_error)}
+                    </>
+                  ) : (
+                    <>
+                      {formatTime(msg.created_at)}
+                      {msg.sender_type !== "customer" && msg.status === "read" && " • Read"}
+                    </>
+                  )}
                 </p>
               </div>
             </div>
