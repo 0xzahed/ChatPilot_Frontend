@@ -5,7 +5,7 @@ RUN corepack enable
 FROM base AS deps
 WORKDIR /app
 COPY package.json pnpm-lock.yaml* pnpm-workspace.yaml* ./
-RUN pnpm install --frozen-lockfile
+RUN pnpm install --no-frozen-lockfile
 
 # Build
 FROM base AS builder
@@ -38,4 +38,4 @@ COPY --from=builder /app/package.json ./package.json
 USER nextjs
 EXPOSE 3000
 
-CMD ["pnpm", "start"]
+CMD ["node_modules/.bin/next", "start"]

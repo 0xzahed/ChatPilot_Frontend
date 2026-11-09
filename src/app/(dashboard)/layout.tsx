@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { useAuth } from "@/providers/app-providers";
 import { useWorkspace } from "@/providers/workspace-context";
 import { Sidebar } from "@/components/layout/sidebar";
@@ -10,6 +10,7 @@ import { Spinner } from "@/components/ui/spinner";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
+  const pathname = usePathname();
   const { user, isLoading: authLoading } = useAuth();
   const { workspace, isLoading: wsLoading } = useWorkspace();
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -59,6 +60,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   if (!user) {
     router.push("/login");
     return null;
+  }
+
+  if (!workspace && pathname.startsWith("/onboarding")) {
+    return <>{children}</>;
   }
 
   if (!workspace) {

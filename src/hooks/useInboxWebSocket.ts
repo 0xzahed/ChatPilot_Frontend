@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import { useDispatch } from "react-redux";
 import type { AppDispatch } from "@/redux";
 import { conversationApi } from "@/redux/api/conversationApi";
+import { useWorkspace } from "@/providers/workspace-context";
 
 /**
  * WebSocket hook for inbox live sync.
@@ -16,6 +17,8 @@ import { conversationApi } from "@/redux/api/conversationApi";
  */
 export function useInboxWebSocket(activeConversationId?: string) {
   const dispatch = useDispatch<AppDispatch>();
+  const { workspace } = useWorkspace();
+  const activeWorkspaceId = workspace?.id ?? null;
   const wsRef = useRef<WebSocket | null>(null);
   const activeIdRef = useRef<string | undefined>(activeConversationId);
 
@@ -25,8 +28,11 @@ export function useInboxWebSocket(activeConversationId?: string) {
 
   useEffect(() => {
     const wsBaseUrl = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:8000";
+    // Prefer the workspace resolved by WorkspaceProvider (it falls back to the
+    // first workspace when nothing was ever picked, so localStorage can be empty).
     const workspaceId =
-      typeof window !== "undefined" ? localStorage.getItem("active_workspace_id") : null;
+      activeWorkspaceId ??
+      (typeof window !== "undefined" ? localStorage.getItem("active_workspace_id") : null);
     if (!workspaceId) return;
 
     let ws: WebSocket | null = null;
@@ -127,7 +133,7 @@ export function useInboxWebSocket(activeConversationId?: string) {
       }
       wsRef.current = null;
     };
-  }, [dispatch]);
+  }, [dispatch, activeWorkspaceId]);
 
   return wsRef;
 }

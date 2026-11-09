@@ -14,21 +14,24 @@ import {
 import { Dropdown } from "@/components/ui/dropdown";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { getInitials } from "@/lib/utils";
+import { useRole } from "@/hooks/useRole";
 
-const navItems = [
+type NavItem = { href: string; label: string; icon: typeof Inbox; minRole?: "agent" | "manager" | "admin" };
+
+const navItems: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/inbox", label: "Inbox", icon: Inbox },
-  { href: "/automation", label: "Automation", icon: Zap },
+  { href: "/automation", label: "Automation", icon: Zap, minRole: "manager" },
   { href: "/analytics", label: "Analytics", icon: BarChart3 },
-  { href: "/integrations", label: "Integrations", icon: Plug },
+  { href: "/integrations", label: "Integrations", icon: Plug, minRole: "admin" },
   { href: "/team", label: "Team", icon: Users },
   { href: "/labels", label: "Labels", icon: Tag },
 ];
 
-const settingsItems = [
+const settingsItems: NavItem[] = [
   { href: "/settings", label: "General", icon: Settings },
-  { href: "/settings/ai", label: "AI Settings", icon: MessageSquare },
-  { href: "/settings/billing", label: "Billing", icon: CreditCard },
+  { href: "/settings/ai", label: "AI Settings", icon: MessageSquare, minRole: "manager" },
+  { href: "/settings/billing", label: "Billing", icon: CreditCard, minRole: "admin" },
 ];
 
 const adminItems = [
@@ -43,6 +46,8 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   const router = useRouter();
   const { user, logout } = useAuth();
   const { workspace, workspaces, setWorkspace } = useWorkspace();
+  const { can } = useRole();
+  const visible = (items: NavItem[]) => items.filter((i) => !i.minRole || can(i.minRole));
 
   const isActive = (href: string) => {
     if (href === "/dashboard") return pathname === "/dashboard";
@@ -82,7 +87,7 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto p-3">
         <div className="space-y-1">
-          {navItems.map((item) => (
+          {visible(navItems).map((item) => (
             <Link
               key={item.href}
               href={item.href}
@@ -104,7 +109,7 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
 
         <div className="space-y-1">
           <p className="px-3 pb-2 text-xs font-semibold uppercase text-muted-foreground">Settings</p>
-          {settingsItems.map((item) => (
+          {visible(settingsItems).map((item) => (
             <Link
               key={item.href}
               href={item.href}

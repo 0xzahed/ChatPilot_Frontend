@@ -8,19 +8,19 @@ export const labelApi = createApi({
   tagTypes: ["Label"],
   endpoints: (builder) => ({
     getLabels: builder.query<Label[] | { results: Label[] }, void>({
-      query: () => ({ url: "/conversations/labels/", method: "GET" }),
+      query: () => ({ url: "/labels/", method: "GET" }),
       providesTags: ["Label"],
     }),
     createLabel: builder.mutation<Label, Record<string, unknown>>({
-      query: (body) => ({ url: "/conversations/labels/", method: "POST", body }),
+      query: (body) => ({ url: "/labels/", method: "POST", body }),
       invalidatesTags: ["Label"],
     }),
     updateLabel: builder.mutation<Label, { id: string; data: Record<string, unknown> }>({
-      query: ({ id, data }) => ({ url: `/conversations/labels/${id}/`, method: "PATCH", body: data }),
+      query: ({ id, data }) => ({ url: `/labels/${id}/`, method: "PATCH", body: data }),
       invalidatesTags: (r, e, { id }) => [{ type: "Label", id }],
     }),
     deleteLabel: builder.mutation<void, string>({
-      query: (id) => ({ url: `/conversations/labels/${id}/`, method: "DELETE" }),
+      query: (id) => ({ url: `/labels/${id}/`, method: "DELETE" }),
       invalidatesTags: ["Label"],
     }),
   }),

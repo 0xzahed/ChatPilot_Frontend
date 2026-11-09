@@ -54,6 +54,8 @@ export interface Workspace {
   slug: string;
   logo?: string | null;
   owner?: string;
+  /** Current user's role in this workspace */
+  role?: "owner" | "admin" | "manager" | "agent" | "viewer" | null;
   is_active?: boolean;
   is_suspended?: boolean;
   created_at?: string;

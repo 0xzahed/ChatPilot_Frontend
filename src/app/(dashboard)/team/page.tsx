@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useWorkspace } from "@/providers/workspace-context";
+import { useRole } from "@/hooks/useRole";
 import { useToast } from "@/components/ui/toast";
 import { useGetTeamQuery, useInviteMemberMutation, useUpdateMemberMutation } from "@/redux/api/teamApi";
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
@@ -33,6 +34,7 @@ const roleVariant = (role: string) =>
 
 export default function TeamPage() {
   const { workspace } = useWorkspace();
+  const canManage = useRole().can("admin");
   const { toast } = useToast();
 
   const [inviteOpen, setInviteOpen] = useState(false);
@@ -88,10 +90,12 @@ export default function TeamPage() {
             Manage who has access to your workspace.
           </p>
         </div>
-        <Button onClick={() => setInviteOpen(true)}>
-          <UserPlus className="h-4 w-4" />
-          Invite Member
-        </Button>
+        {canManage && (
+          <Button onClick={() => setInviteOpen(true)}>
+            <UserPlus className="h-4 w-4" />
+            Invite Member
+          </Button>
+        )}
       </div>
 
       {/* Members table */}
@@ -116,7 +120,7 @@ export default function TeamPage() {
               title="No team members yet"
               description="Invite your first team member to start collaborating."
               action={
-                <Button onClick={() => setInviteOpen(true)}>
+                !canManage ? undefined : <Button onClick={() => setInviteOpen(true)}>
                   <UserPlus className="h-4 w-4" />
                   Invite Member
                 </Button>
@@ -160,7 +164,7 @@ export default function TeamPage() {
                       {member.created_at ? formatDate(member.created_at) : "—"}
                     </TableCell>
                     <TableCell className="text-right">
-                      <Dropdown
+                      {canManage && <Dropdown
                         align="right"
                         trigger={
                           <Button variant="ghost" size="icon" className="h-8 w-8">
@@ -172,7 +176,7 @@ export default function TeamPage() {
                           icon: r.icon,
                           onClick: () => updateMutation.mutate({ id: member.id, role: r.value }),
                         }))}
-                      />
+                      />}
                     </TableCell>
                   </TableRow>
                 ))}

@@ -6,9 +6,9 @@ import type { NextRequest } from "next/server";
  * cookie set by the backend on login. Full validation still happens
  * client-side in the dashboard layout.
  *
- * Public routes: /, /login, /register, /forgot-password, /reset-password
+ * Public routes: /, /login, /register, /forgot-password, /reset-password, /privacy, /terms, /data-deletion
  */
-const PUBLIC_ROUTES = ["/", "/login", "/register", "/forgot-password", "/reset-password"];
+const PUBLIC_ROUTES = ["/", "/login", "/register", "/forgot-password", "/reset-password", "/privacy", "/terms", "/data-deletion"];
 
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;

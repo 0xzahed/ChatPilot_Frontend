@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useState, useCallback } from "react";
+import React, { createContext, useContext, useState, useCallback, useEffect } from "react";
 import { useGetWorkspacesQuery } from "@/redux/api/workspaceApi";
 import { useAuth } from "@/providers/app-providers";
 import type { Workspace } from "@/types/api";
@@ -40,6 +40,20 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     workspaces.find((w) => w.id === selectedId) ??
     workspaces[0] ??
     null;
+
+  // Persist the resolved workspace so code that reads localStorage directly
+  // (and later page loads) agree with the first-workspace fallback above.
+  useEffect(() => {
+    if (workspace && typeof window !== "undefined") {
+      try {
+        if (localStorage.getItem("active_workspace_id") !== workspace.id) {
+          localStorage.setItem("active_workspace_id", workspace.id);
+        }
+      } catch {
+        // storage unavailable — ignore
+      }
+    }
+  }, [workspace]);
 
   const setWorkspace = useCallback((ws: Workspace) => {
     setSelectedId(ws.id);
